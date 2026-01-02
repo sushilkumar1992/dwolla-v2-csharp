@@ -1,0 +1,22 @@
+# Dwolla Full Flow Frontend
+
+React (Vite) single-page experience for driving the Dwolla end-to-end API. It pairs with the `FullFlow.Api` backend to create customers, link funding sources, and trigger transfers.
+
+## Setup
+
+1. Install dependencies (requires Node 18+):
+   ```bash
+   npm install
+   ```
+2. Set the backend base URL (defaults to `http://localhost:5000`):
+   ```bash
+   echo "VITE_API_BASE_URL=http://localhost:5000" > .env.local
+   ```
+3. Run locally:
+   ```bash
+   npm run dev
+   ```
+
+## Build
+
+Use `npm run build` to generate a production bundle in `dist/`.
