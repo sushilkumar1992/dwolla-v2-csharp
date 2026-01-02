@@ -21,6 +21,7 @@ namespace DwollaFullFlow.Api.Services
         Task<FundingSource> GetFundingSourceAsync(string fundingSourceId);
         Task<Uri> CreateTransferAsync(CreateTransferRequest request);
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
+        Task<TransferResponse> GetTransferAsync(string transferId);
     }
 
     public class DwollaGateway : IDwollaGateway
@@ -158,6 +159,15 @@ namespace DwollaFullFlow.Api.Services
         {
             var headers = await BuildHeadersAsync();
             var response = await _client.GetAsync<TransferResponse>(transferUri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<TransferResponse> GetTransferAsync(string transferId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}");
+            var response = await _client.GetAsync<TransferResponse>(uri, headers);
             EnsureSuccess(response);
             return response.Content;
         }

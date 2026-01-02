@@ -30,3 +30,4 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
 - `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
 - `POST /api/transfers` – initiate a transfer between two funding sources
+- `GET /api/transfers/{transferId}` – fetch transfer details and status by ID

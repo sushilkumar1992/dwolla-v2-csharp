@@ -49,6 +49,8 @@ function App() {
   const [latestTransfer, setLatestTransfer] = useState(null);
   const [fundingSources, setFundingSources] = useState([]);
   const [fundingSourcesCustomerId, setFundingSourcesCustomerId] = useState('');
+  const [transferLookupId, setTransferLookupId] = useState('');
+  const [transferDetails, setTransferDetails] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -82,6 +84,7 @@ function App() {
       const created = await apiPost('/api/customers', customerForm);
       setCustomers((current) => [created, ...current]);
       setCustomerForm(initialCustomer);
+      setFundingSourcesCustomerId(created.id);
     }, 'Customer created successfully.');
   };
 
@@ -126,6 +129,24 @@ function App() {
       const list = await apiGet(`/api/funding-sources/customers/${fundingSourcesCustomerId}?limit=25&offset=0`);
       setFundingSources(list);
     }, 'Funding sources loaded.');
+  };
+
+  const lookupTransfer = async (event) => {
+    event.preventDefault();
+    if (!transferLookupId) {
+      setFeedback({ type: 'error', message: 'Enter a transfer ID to look up status.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const details = await apiGet(`/api/transfers/${transferLookupId}`);
+      setTransferDetails(details);
+    }, 'Transfer status loaded.');
+  };
+
+  const markTransferFundingSource = (fundingSourceId, slot) => {
+    setTransferForm((prev) => ({ ...prev, [slot]: fundingSourceId }));
+    setFeedback(null);
   };
 
   return (
@@ -194,8 +215,21 @@ function App() {
         <form className="form-grid" onSubmit={submitFundingSource}>
           <label>
             Customer ID
-            <input name="customerId" value={fundingForm.customerId} onChange={handleChange(setFundingForm)} required />
+            <input
+              name="customerId"
+              list="customerOptions"
+              value={fundingForm.customerId}
+              onChange={handleChange(setFundingForm)}
+              required
+            />
           </label>
+          <datalist id="customerOptions">
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.firstName} {customer.lastName} ({customer.email})
+              </option>
+            ))}
+          </datalist>
           <label>
             Routing Number
             <input name="routingNumber" value={fundingForm.routingNumber} onChange={handleChange(setFundingForm)} required />
@@ -248,6 +282,7 @@ function App() {
                 <th>Type</th>
                 <th>Status</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -257,6 +292,16 @@ function App() {
                   <td>{fs.bankAccountType}</td>
                   <td>{fs.status}</td>
                   <td>{new Date(fs.created).toLocaleString()}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button type="button" onClick={() => markTransferFundingSource(fs.id, 'sourceFundingSourceId')}>
+                        Use as source
+                      </button>
+                      <button type="button" onClick={() => markTransferFundingSource(fs.id, 'destinationFundingSourceId')}>
+                        Use as destination
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -273,6 +318,7 @@ function App() {
             Source Funding Source ID
             <input
               name="sourceFundingSourceId"
+              list="fundingSourceOptions"
               value={transferForm.sourceFundingSourceId}
               onChange={handleChange(setTransferForm)}
               required
@@ -282,11 +328,19 @@ function App() {
             Destination Funding Source ID
             <input
               name="destinationFundingSourceId"
+              list="fundingSourceOptions"
               value={transferForm.destinationFundingSourceId}
               onChange={handleChange(setTransferForm)}
               required
             />
           </label>
+          <datalist id="fundingSourceOptions">
+            {fundingSources.map((fs) => (
+              <option key={fs.id} value={fs.id}>
+                {fs.name} ({fs.bankAccountType})
+              </option>
+            ))}
+          </datalist>
           <label>
             Amount (USD)
             <input
@@ -312,6 +366,33 @@ function App() {
         {latestTransfer && (
           <div className="alert success">
             Transfer {latestTransfer.id} created for {latestTransfer.amount} {latestTransfer.currency} (status {latestTransfer.status}).
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2>Lookup Transfer Status</h2>
+        <form className="form-grid inline-form" onSubmit={lookupTransfer}>
+          <label>
+            Transfer ID
+            <input value={transferLookupId} onChange={(e) => setTransferLookupId(e.target.value)} required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Check Transfer</button>
+          </div>
+        </form>
+        {transferDetails && (
+          <div className="transfer-details">
+            <p>
+              Transfer <strong>{transferDetails.id}</strong> is <strong>{transferDetails.status}</strong> for {transferDetails.amount}{' '}
+              {transferDetails.currency}.
+            </p>
+            <p className="small-note">
+              Created {new Date(transferDetails.created).toLocaleString()} • Correlation {transferDetails.correlationId || 'n/a'}
+            </p>
+            <p className="small-note">
+              Source: {transferDetails.sourceFundingSourceId || 'unknown'} • Destination: {transferDetails.destinationFundingSourceId || 'unknown'}
+            </p>
           </div>
         )}
       </section>

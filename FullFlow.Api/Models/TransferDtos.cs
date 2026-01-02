@@ -30,4 +30,12 @@ namespace DwollaFullFlow.Api.Models
         public decimal Amount { get; set; }
         public string Currency { get; set; } = string.Empty;
     }
+
+    public class TransferDetailsDto : TransferSummaryDto
+    {
+        public DateTime Created { get; set; }
+        public string? CorrelationId { get; set; }
+        public string? SourceFundingSourceId { get; set; }
+        public string? DestinationFundingSourceId { get; set; }
+    }
 }
