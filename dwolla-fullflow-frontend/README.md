@@ -21,6 +21,7 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
 
 - Create personal or business customers
 - Link bank funding sources and view the list of sources for a given customer
+- Trigger Dwolla micro-deposits and submit verification amounts for a funding source
 - Initiate transfers between any two funding sources
 - Reuse loaded funding sources when composing transfers and look up transfer status by ID
 

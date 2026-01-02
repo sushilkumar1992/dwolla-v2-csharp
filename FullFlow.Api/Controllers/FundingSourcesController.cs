@@ -100,5 +100,48 @@ namespace DwollaFullFlow.Api.Controllers
                 return ProblemFromDwolla(ex);
             }
         }
+
+        [HttpPost("{fundingSourceId}/micro-deposits/initiate")]
+        public async Task<ActionResult<MicroDepositStatusDto>> InitiateMicroDeposits(string fundingSourceId)
+        {
+            try
+            {
+                var response = await _gateway.InitiateMicroDepositsAsync(fundingSourceId);
+                return Ok(new MicroDepositStatusDto
+                {
+                    Created = response.Created,
+                    Status = response.Status,
+                    FailureReason = response.Failure?.Reason
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpPost("{fundingSourceId}/micro-deposits/verify")]
+        public async Task<ActionResult<MicroDepositStatusDto>> VerifyMicroDeposits(string fundingSourceId, [FromBody] MicroDepositVerificationDto model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                var response = await _gateway.VerifyMicroDepositsAsync(fundingSourceId, model.Amount1, model.Amount2, model.Currency);
+                return Ok(new MicroDepositStatusDto
+                {
+                    Created = response.Created,
+                    Status = response.Status,
+                    FailureReason = response.Failure?.Reason
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
     }
 }

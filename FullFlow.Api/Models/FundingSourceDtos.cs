@@ -27,4 +27,26 @@ namespace DwollaFullFlow.Api.Models
         public string Status { get; set; } = string.Empty;
         public DateTime Created { get; set; }
     }
+
+    public class MicroDepositVerificationDto
+    {
+        [Required]
+        [Range(0.01, 1_000_000, ErrorMessage = "Amount must be positive.")]
+        public decimal Amount1 { get; set; }
+
+        [Required]
+        [Range(0.01, 1_000_000, ErrorMessage = "Amount must be positive.")]
+        public decimal Amount2 { get; set; }
+
+        [Required]
+        [StringLength(3, MinimumLength = 3)]
+        public string Currency { get; set; } = "USD";
+    }
+
+    public class MicroDepositStatusDto
+    {
+        public DateTime Created { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? FailureReason { get; set; }
+    }
 }

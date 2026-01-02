@@ -19,6 +19,8 @@ namespace DwollaFullFlow.Api.Services
         Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset);
         Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri);
         Task<FundingSource> GetFundingSourceAsync(string fundingSourceId);
+        Task<MicroDepositsResponse> InitiateMicroDepositsAsync(string fundingSourceId);
+        Task<MicroDepositsResponse> VerifyMicroDepositsAsync(string fundingSourceId, decimal amount1, decimal amount2, string currency = "USD");
         Task<Uri> CreateTransferAsync(CreateTransferRequest request);
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
@@ -136,6 +138,36 @@ namespace DwollaFullFlow.Api.Services
             var headers = await BuildHeadersAsync();
             var uri = new Uri($"{_client.ApiBaseAddress}/funding-sources/{fundingSourceId}");
             var response = await _client.GetAsync<FundingSource>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<MicroDepositsResponse> InitiateMicroDepositsAsync(string fundingSourceId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<object, MicroDepositsResponse>(
+                new Uri($"{_client.ApiBaseAddress}/funding-sources/{fundingSourceId}/micro-deposits"),
+                new { },
+                headers);
+
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<MicroDepositsResponse> VerifyMicroDepositsAsync(string fundingSourceId, decimal amount1, decimal amount2, string currency = "USD")
+        {
+            var headers = await BuildHeadersAsync();
+            var request = new MicroDepositsRequest
+            {
+                Amount1 = new Money { Currency = currency, Value = amount1 },
+                Amount2 = new Money { Currency = currency, Value = amount2 }
+            };
+
+            var response = await _client.PostAsync<MicroDepositsRequest, MicroDepositsResponse>(
+                new Uri($"{_client.ApiBaseAddress}/funding-sources/{fundingSourceId}/micro-deposits"),
+                request,
+                headers);
+
             EnsureSuccess(response);
             return response.Content;
         }

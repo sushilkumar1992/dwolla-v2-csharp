@@ -23,6 +23,13 @@ const initialFundingSource = {
   name: '',
 };
 
+const initialMicroDeposit = {
+  fundingSourceId: '',
+  amount1: '',
+  amount2: '',
+  currency: 'USD',
+};
+
 const initialTransfer = {
   sourceFundingSourceId: '',
   destinationFundingSourceId: '',
@@ -48,6 +55,8 @@ function App() {
   const [latestFundingSource, setLatestFundingSource] = useState(null);
   const [latestTransfer, setLatestTransfer] = useState(null);
   const [fundingSources, setFundingSources] = useState([]);
+  const [microDepositForm, setMicroDepositForm] = useState(initialMicroDeposit);
+  const [microDepositStatus, setMicroDepositStatus] = useState(null);
   const [fundingSourcesCustomerId, setFundingSourcesCustomerId] = useState('');
   const [transferLookupId, setTransferLookupId] = useState('');
   const [transferDetails, setTransferDetails] = useState(null);
@@ -129,6 +138,42 @@ function App() {
       const list = await apiGet(`/api/funding-sources/customers/${fundingSourcesCustomerId}?limit=25&offset=0`);
       setFundingSources(list);
     }, 'Funding sources loaded.');
+  };
+
+  const initiateMicroDeposits = async (event) => {
+    event.preventDefault();
+    if (!microDepositForm.fundingSourceId) {
+      setFeedback({ type: 'error', message: 'Enter a funding source ID to initiate micro-deposits.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const status = await apiPost(`/api/funding-sources/${microDepositForm.fundingSourceId}/micro-deposits/initiate`, {});
+      setMicroDepositStatus(status);
+    }, 'Micro-deposits initiated.');
+  };
+
+  const verifyMicroDeposits = async (event) => {
+    event.preventDefault();
+    if (!microDepositForm.fundingSourceId) {
+      setFeedback({ type: 'error', message: 'Enter a funding source ID to verify micro-deposits.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const amount1 = Number(microDepositForm.amount1);
+      const amount2 = Number(microDepositForm.amount2);
+      if (Number.isNaN(amount1) || Number.isNaN(amount2)) {
+        throw new Error('Enter valid numeric amounts for micro-deposit verification.');
+      }
+      const status = await apiPost(`/api/funding-sources/${microDepositForm.fundingSourceId}/micro-deposits/verify`, {
+        amount1,
+        amount2,
+        currency: microDepositForm.currency,
+      });
+      setMicroDepositStatus(status);
+      setMicroDepositForm((prev) => ({ ...prev, amount1: '', amount2: '' }));
+    }, 'Micro-deposits verified.');
   };
 
   const lookupTransfer = async (event) => {
@@ -300,6 +345,9 @@ function App() {
                       <button type="button" onClick={() => markTransferFundingSource(fs.id, 'destinationFundingSourceId')}>
                         Use as destination
                       </button>
+                      <button type="button" onClick={() => setMicroDepositForm((prev) => ({ ...prev, fundingSourceId: fs.id }))}>
+                        Verify via micro-deposits
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -308,6 +356,78 @@ function App() {
           </table>
         ) : (
           <p className="small-note">No funding sources loaded yet.</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Verify Funding Source (Micro-deposits)</h2>
+        <form className="form-grid inline-form" onSubmit={initiateMicroDeposits}>
+          <label>
+            Funding Source ID
+            <input
+              name="fundingSourceId"
+              list="fundingSourceOptions"
+              value={microDepositForm.fundingSourceId}
+              onChange={handleChange(setMicroDepositForm)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Send micro-deposits</button>
+          </div>
+        </form>
+
+        <form className="form-grid" onSubmit={verifyMicroDeposits}>
+          <label>
+            Funding Source ID
+            <input
+              name="fundingSourceId"
+              list="fundingSourceOptions"
+              value={microDepositForm.fundingSourceId}
+              onChange={handleChange(setMicroDepositForm)}
+              required
+            />
+          </label>
+          <label>
+            Amount 1
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              name="amount1"
+              value={microDepositForm.amount1}
+              onChange={handleChange(setMicroDepositForm)}
+              required
+            />
+          </label>
+          <label>
+            Amount 2
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              name="amount2"
+              value={microDepositForm.amount2}
+              onChange={handleChange(setMicroDepositForm)}
+              required
+            />
+          </label>
+          <label>
+            Currency
+            <input name="currency" value={microDepositForm.currency} onChange={handleChange(setMicroDepositForm)} required />
+          </label>
+          <button type="submit" disabled={busy}>Verify micro-deposits</button>
+        </form>
+
+        {microDepositStatus && (
+          <div className="transfer-details">
+            <p>
+              Micro-deposit status: <strong>{microDepositStatus.status}</strong> (created {new Date(microDepositStatus.created).toLocaleString()})
+            </p>
+            {microDepositStatus.failureReason && (
+              <p className="small-note">Failure: {microDepositStatus.failureReason}</p>
+            )}
+          </div>
         )}
       </section>
 

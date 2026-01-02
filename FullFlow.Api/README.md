@@ -29,5 +29,7 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `GET /api/customers` – list customers (paged)
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
 - `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
+- `POST /api/funding-sources/{fundingSourceId}/micro-deposits/initiate` – trigger Dwolla micro-deposits to verify a funding source
+- `POST /api/funding-sources/{fundingSourceId}/micro-deposits/verify` – submit the two micro-deposit amounts to complete verification
 - `POST /api/transfers` – initiate a transfer between two funding sources
 - `GET /api/transfers/{transferId}` – fetch transfer details and status by ID
