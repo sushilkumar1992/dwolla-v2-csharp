@@ -1,3 +1,4 @@
+using System.IO;
 using Dwolla.Client;
 using Dwolla.Client.Models;
 using Dwolla.Client.Models.Requests;
@@ -26,6 +27,8 @@ namespace DwollaFullFlow.Api.Services
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
         Task<TransferResponse> CancelTransferAsync(string transferId);
+        Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset);
+        Task<DocumentResponse> UploadCustomerDocumentAsync(string customerId, string documentType, Stream fileStream, string filename, string contentType);
         Task<GetWebhookSubscriptionsResponse> GetWebhookSubscriptionsAsync(int limit, int offset);
         Task<Uri> CreateWebhookSubscriptionAsync(CreateWebhookSubscriptionRequest request);
         Task DeleteWebhookSubscriptionAsync(string subscriptionId);
@@ -230,6 +233,49 @@ namespace DwollaFullFlow.Api.Services
             var transferResponse = await _client.GetAsync<TransferResponse>(transferUri, headers);
             EnsureSuccess(transferResponse);
             return transferResponse.Content;
+        }
+
+        public async Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/documents?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetDocumentsResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<DocumentResponse> UploadCustomerDocumentAsync(
+            string customerId,
+            string documentType,
+            Stream fileStream,
+            string filename,
+            string contentType)
+        {
+            var headers = await BuildHeadersAsync();
+            var request = new UploadDocumentRequest
+            {
+                DocumentType = documentType,
+                Document = new File
+                {
+                    Filename = filename,
+                    ContentType = contentType,
+                    Stream = fileStream
+                }
+            };
+
+            var uri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/documents");
+            var response = await _client.PostAsync<UploadDocumentRequest, EmptyResponse>(uri, request, headers);
+            EnsureSuccess(response);
+
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the document.");
+            }
+
+            var documentResponse = await _client.GetAsync<DocumentResponse>(location, headers);
+            EnsureSuccess(documentResponse);
+            return documentResponse.Content;
         }
 
         public async Task<GetWebhookSubscriptionsResponse> GetWebhookSubscriptionsAsync(int limit, int offset)

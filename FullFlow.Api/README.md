@@ -28,6 +28,8 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/auth/token` – obtain an application access token
 - `POST /api/customers` – create a personal or business customer
 - `GET /api/customers` – list customers (paged)
+- `GET /api/customers/{customerId}/documents` – list verification documents for a customer (paged)
+- `POST /api/customers/{customerId}/documents` – upload a verification document for review
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
 - `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
 - `GET /api/funding-sources/{fundingSourceId}/balance` – fetch the current balance for a funding source

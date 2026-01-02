@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { apiDelete, apiGet, apiPost } from './api';
+import { apiDelete, apiGet, apiPost, apiPostForm } from './api';
 
 const initialCustomer = {
   firstName: '',
@@ -43,6 +43,12 @@ const initialWebhookSubscription = {
   secret: '',
 };
 
+const initialDocumentUpload = {
+  customerId: '',
+  documentType: 'license',
+  file: null,
+};
+
 function Feedback({ feedback }) {
   if (!feedback?.message) return null;
   return (
@@ -72,6 +78,9 @@ function App() {
   const [webhookResourceFilter, setWebhookResourceFilter] = useState('');
   const [webhookSubscriptions, setWebhookSubscriptions] = useState([]);
   const [webhookSubscriptionForm, setWebhookSubscriptionForm] = useState(initialWebhookSubscription);
+  const [documentForm, setDocumentForm] = useState(initialDocumentUpload);
+  const [customerDocuments, setCustomerDocuments] = useState([]);
+  const [documentLookupCustomerId, setDocumentLookupCustomerId] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -80,6 +89,11 @@ function App() {
   const handleChange = (setter) => (event) => {
     const { name, value } = event.target;
     setter((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (setter, field) => (event) => {
+    const file = event.target.files?.[0] || null;
+    setter((prev) => ({ ...prev, [field]: file }));
   };
 
   const withFeedback = async (action, successMessage) => {
@@ -152,6 +166,21 @@ function App() {
     }, 'Funding sources loaded.');
   };
 
+  const loadCustomerDocuments = async (event, customerIdOverride) => {
+    event.preventDefault?.();
+    const targetCustomer = customerIdOverride || documentLookupCustomerId || documentForm.customerId;
+    if (!targetCustomer) {
+      setFeedback({ type: 'error', message: 'Enter a customer ID to load documents.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const docs = await apiGet(`/api/customers/${targetCustomer}/documents?limit=25&offset=0`);
+      setCustomerDocuments(docs);
+      setDocumentLookupCustomerId(targetCustomer);
+    }, 'Customer documents loaded.');
+  };
+
   const checkFundingSourceBalance = async (event) => {
     event.preventDefault();
     if (!balanceLookupId) {
@@ -199,6 +228,30 @@ function App() {
       setMicroDepositStatus(status);
       setMicroDepositForm((prev) => ({ ...prev, amount1: '', amount2: '' }));
     }, 'Micro-deposits verified.');
+  };
+
+  const uploadCustomerDocument = async (event) => {
+    event.preventDefault();
+    if (!documentForm.customerId) {
+      setFeedback({ type: 'error', message: 'Enter a customer ID for the document upload.' });
+      return;
+    }
+
+    if (!documentForm.file) {
+      setFeedback({ type: 'error', message: 'Select a document file to upload.' });
+      return;
+    }
+
+    const targetCustomerId = documentForm.customerId;
+    const formData = new FormData();
+    formData.append('documentType', documentForm.documentType);
+    formData.append('file', documentForm.file);
+
+    await withFeedback(async () => {
+      await apiPostForm(`/api/customers/${targetCustomerId}/documents`, formData);
+      setDocumentForm(initialDocumentUpload);
+      await loadCustomerDocuments({ preventDefault: () => {} }, targetCustomerId);
+    }, 'Document uploaded for review.');
   };
 
   const lookupTransfer = async (event) => {
@@ -331,6 +384,78 @@ function App() {
           </label>
           <button type="submit" disabled={busy}>Save Customer</button>
         </form>
+      </section>
+
+      <section>
+        <h2>Customer Identity Documents</h2>
+        <form className="form-grid" onSubmit={uploadCustomerDocument}>
+          <label>
+            Customer ID
+            <input
+              name="customerId"
+              list="customerOptions"
+              value={documentForm.customerId}
+              onChange={handleChange(setDocumentForm)}
+              required
+            />
+          </label>
+          <label>
+            Document Type
+            <select name="documentType" value={documentForm.documentType} onChange={handleChange(setDocumentForm)}>
+              <option value="license">Driver License</option>
+              <option value="passport">Passport</option>
+              <option value="idCard">Government ID Card</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Document File
+            <input type="file" accept="image/*,.pdf" onChange={handleFileChange(setDocumentForm, 'file')} required />
+          </label>
+          <button type="submit" disabled={busy}>Upload Document</button>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={loadCustomerDocuments}>
+          <label>
+            Customer ID
+            <input
+              name="documentLookupCustomerId"
+              value={documentLookupCustomerId}
+              onChange={(e) => setDocumentLookupCustomerId(e.target.value)}
+              placeholder="Customer to load documents"
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Documents</button>
+          </div>
+        </form>
+
+        {customerDocuments.length > 0 ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Document ID</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Failure Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customerDocuments.map((doc) => (
+                <tr key={doc.id}>
+                  <td>{doc.id}</td>
+                  <td>{doc.type}</td>
+                  <td>{doc.status}</td>
+                  <td>{new Date(doc.created).toLocaleString()}</td>
+                  <td>{doc.failureReason || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small-note">No documents loaded.</p>
+        )}
       </section>
 
       <section>

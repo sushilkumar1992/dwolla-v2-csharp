@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Linq;
 using Dwolla.Client.Models.Requests;
 using DwollaFullFlow.Api.Models;
@@ -111,6 +112,79 @@ namespace DwollaFullFlow.Api.Controllers
                 };
 
                 return CreatedAtAction(nameof(GetCustomerById), new { id = summary.Id }, summary);
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpGet("{id}/documents")]
+        public async Task<ActionResult<IEnumerable<DocumentSummaryDto>>> GetCustomerDocuments(
+            string id,
+            [FromQuery, Range(1, 200)] int limit = 10,
+            [FromQuery, Range(0, int.MaxValue)] int offset = 0)
+        {
+            try
+            {
+                var response = await _gateway.GetCustomerDocumentsAsync(id, limit, offset);
+                var documents = response.Embedded?.Results()?.Select(d => new DocumentSummaryDto
+                {
+                    Id = d.Id,
+                    Status = d.Status,
+                    Type = d.Type,
+                    Created = d.Created,
+                    FailureReason = d.FailureReason
+                }) ?? Enumerable.Empty<DocumentSummaryDto>();
+
+                return Ok(documents);
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpPost("{id}/documents")]
+        [RequestSizeLimit(10 * 1024 * 1024)]
+        public async Task<ActionResult<DocumentSummaryDto>> UploadCustomerDocument(
+            string id,
+            [FromForm] UploadCustomerDocumentDto model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            if (model.File == null || model.File.Length == 0)
+            {
+                ModelState.AddModelError(nameof(model.File), "A document file is required.");
+                return ValidationProblem(ModelState);
+            }
+
+            await using var stream = new MemoryStream();
+            await model.File.CopyToAsync(stream);
+            stream.Position = 0;
+
+            try
+            {
+                var document = await _gateway.UploadCustomerDocumentAsync(
+                    id,
+                    model.DocumentType,
+                    stream,
+                    model.File.FileName,
+                    model.File.ContentType ?? "application/octet-stream");
+
+                var summary = new DocumentSummaryDto
+                {
+                    Id = document.Id,
+                    Status = document.Status,
+                    Type = document.Type,
+                    Created = document.Created,
+                    FailureReason = document.FailureReason
+                };
+
+                return CreatedAtAction(nameof(GetCustomerDocuments), new { id }, summary);
             }
             catch (DwollaApiException ex)
             {

@@ -27,6 +27,14 @@ export async function apiPost(path, body) {
   return handleResponse(response);
 }
 
+export async function apiPostForm(path, formData) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    body: formData,
+  });
+  return handleResponse(response);
+}
+
 export async function apiDelete(path) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'DELETE',
