@@ -9,6 +9,7 @@ Set environment variables or configuration values for the Dwolla credentials bef
 - `Dwolla__Key` – Dwolla application key
 - `Dwolla__Secret` – Dwolla application secret
 - `Dwolla__IsSandbox` – `true` for sandbox (default), `false` for production
+- `Dwolla__WebhookSecret` – shared secret used to validate Dwolla webhook signatures
 - `Cors__AllowedOrigins` – optional list of origins allowed to call the API (defaults to Vite dev server URLs)
 
 For local development you can also edit `appsettings.json` or provide a user secrets store. Keep secrets out of source control.
@@ -35,3 +36,12 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/transfers` – initiate a transfer between two funding sources
 - `GET /api/transfers/{transferId}` – fetch transfer details and status by ID
 - `POST /api/transfers/{transferId}/cancel` – cancel a transfer that is still cancelable
+- `POST /api/webhooks` – Dwolla webhook receiver that validates request signatures and records events
+- `GET /api/webhooks/events` – list recently received webhook events (optionally filtered by `resourceId`)
+- `DELETE /api/webhooks/events` – clear the in-memory webhook event log
+
+### Webhooks
+
+Provide `Dwolla__WebhookSecret` from your Dwolla application settings and configure Dwolla to send webhooks to
+`/api/webhooks`. The API validates the Dwolla signature header, logs accepted payloads in memory, and exposes the
+recent event log through `GET /api/webhooks/events` for quick inspection while developing locally.

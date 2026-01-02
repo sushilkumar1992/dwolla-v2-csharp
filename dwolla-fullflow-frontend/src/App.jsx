@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { apiGet, apiPost } from './api';
+import { apiDelete, apiGet, apiPost } from './api';
 
 const initialCustomer = {
   firstName: '',
@@ -63,6 +63,8 @@ function App() {
   const [transferLookupId, setTransferLookupId] = useState('');
   const [transferDetails, setTransferDetails] = useState(null);
   const [cancelTransferId, setCancelTransferId] = useState('');
+  const [webhookEvents, setWebhookEvents] = useState([]);
+  const [webhookResourceFilter, setWebhookResourceFilter] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -217,6 +219,22 @@ function App() {
       setTransferDetails(details);
       setCancelTransferId('');
     }, 'Transfer cancellation requested.');
+  };
+
+  const loadWebhookEvents = async (event) => {
+    event.preventDefault();
+    const resourceQuery = webhookResourceFilter ? `?resourceId=${encodeURIComponent(webhookResourceFilter)}` : '';
+    await withFeedback(async () => {
+      const events = await apiGet(`/api/webhooks/events${resourceQuery}`);
+      setWebhookEvents(events);
+    }, 'Webhook events loaded.');
+  };
+
+  const clearWebhookEvents = async () => {
+    await withFeedback(async () => {
+      await apiDelete('/api/webhooks/events');
+      setWebhookEvents([]);
+    }, 'Webhook log cleared.');
   };
 
   const markTransferFundingSource = (fundingSourceId, slot) => {
@@ -593,6 +611,63 @@ function App() {
         </form>
         {transferDetails && (
           <p className="small-note">Most recent transfer lookup/cancel result: {transferDetails.status}</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Webhook Events</h2>
+        <p className="small-note">
+          Configure your Dwolla webhook subscription to post to <strong>{apiBase}/api/webhooks</strong>. Events that validate the
+          signature will be captured here in-memory.
+        </p>
+        <form className="form-grid inline-form" onSubmit={loadWebhookEvents}>
+          <label>
+            Filter by Resource ID
+            <input
+              name="webhookResourceFilter"
+              value={webhookResourceFilter}
+              onChange={(e) => setWebhookResourceFilter(e.target.value)}
+              placeholder="optional"
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Refresh Events</button>
+            <button type="button" onClick={clearWebhookEvents} disabled={busy}>Clear Log</button>
+          </div>
+        </form>
+
+        {webhookEvents.length > 0 ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Topic</th>
+                <th>Resource</th>
+                <th>Occurred</th>
+                <th>Received</th>
+                <th>Payload</th>
+              </tr>
+            </thead>
+            <tbody>
+              {webhookEvents.map((evt) => (
+                <tr key={`${evt.id}-${evt.receivedAt}`}>
+                  <td>{evt.id}</td>
+                  <td>{evt.topic}</td>
+                  <td>{evt.resourceId}</td>
+                  <td>{evt.occurredAt ? new Date(evt.occurredAt).toLocaleString() : 'n/a'}</td>
+                  <td>{evt.receivedAt ? new Date(evt.receivedAt).toLocaleString() : 'n/a'}</td>
+                  <td>
+                    <details>
+                      <summary>View JSON</summary>
+                      <pre className="code-block">{evt.rawPayload}</pre>
+                    </details>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small-note">No webhook events captured yet.</p>
         )}
       </section>
 

@@ -26,6 +26,7 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
 - Initiate transfers between any two funding sources
 - Reuse loaded funding sources when composing transfers and look up transfer status by ID
 - Cancel transfers when still eligible and confirm the resulting status
+- View validated webhook events posted to the backend webhook receiver
 
 ## Build
 

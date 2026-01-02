@@ -22,6 +22,8 @@ builder.Services.AddSingleton<IDwollaClient>(sp =>
     return DwollaClient.Create(options.IsSandbox);
 });
 builder.Services.AddScoped<IDwollaGateway, DwollaGateway>();
+builder.Services.AddSingleton<IWebhookVerifier, HmacSha256WebhookVerifier>();
+builder.Services.AddSingleton<IWebhookStore, InMemoryWebhookStore>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
