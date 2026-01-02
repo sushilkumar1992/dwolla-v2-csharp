@@ -8,7 +8,7 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
    ```bash
    npm install
    ```
-2. Set the backend base URL (defaults to `http://localhost:5000`):
+2. Set the backend base URL (defaults to the same origin the app is served from, e.g., `http://localhost:5173` when using Vite):
    ```bash
    echo "VITE_API_BASE_URL=http://localhost:5000" > .env.local
    ```
