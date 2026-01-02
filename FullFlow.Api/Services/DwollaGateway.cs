@@ -24,6 +24,7 @@ namespace DwollaFullFlow.Api.Services
         Task<Customer> UpgradeCustomerAsync(string customerId);
         Task<IavTokenResponse> GetIavTokenAsync(string customerId);
         Task<Uri> CreateFundingSourceAsync(string customerId, CreateFundingSourceRequest request);
+        Task<FundingSource> CreatePlaidFundingSourceAsync(CreatePlaidFundingSourceRequest request);
         Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset);
         Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri);
         Task<FundingSource> GetFundingSourceAsync(string fundingSourceId);
@@ -41,12 +42,23 @@ namespace DwollaFullFlow.Api.Services
         Task<GetTransferReturnsResponse> GetTransferReturnsAsync(string transferId, int limit, int offset);
         Task<GetEventsResponse> GetEventsAsync(int limit, int offset, string? resourceId = null, string? topic = null);
         Task<EventResponse> GetEventAsync(string eventId);
+        Task<GetBusinessClassificationsResponse> GetBusinessClassificationsAsync(int limit, int offset);
         Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset);
         Task<DocumentResponse> UploadCustomerDocumentAsync(string customerId, string documentType, Stream fileStream, string filename, string contentType);
         Task<GetWebhookSubscriptionsResponse> GetWebhookSubscriptionsAsync(int limit, int offset);
         Task<Uri> CreateWebhookSubscriptionAsync(CreateWebhookSubscriptionRequest request);
         Task DeleteWebhookSubscriptionAsync(string subscriptionId);
         Task<WebhookSubscription> GetWebhookSubscriptionAsync(Uri subscriptionUri);
+        Task<GetExchangePartnersResponse> GetExchangePartnersAsync(int limit, int offset);
+        Task<GetExchangesResponse> GetExchangesAsync(int limit, int offset);
+        Task<ExchangeResponse> GetExchangeAsync(string exchangeId);
+        Task<ExchangeResponse> CreateExchangeAsync(CreateExchangeRequest request);
+        Task<Label> CreateLabelAsync(CreateLabelRequest request);
+        Task<GetLabelsResponse> GetLabelsAsync(int limit, int offset);
+        Task<Label> GetLabelAsync(string labelId);
+        Task<LabelLedgerEntry> CreateLabelLedgerEntryAsync(string labelId, CreateLabelLedgerEntryRequest request);
+        Task<GetLabelLedgerEntriesResponse> GetLabelLedgerEntriesAsync(string labelId, int limit, int offset);
+        Task<LabelReallocation> CreateLabelReallocationAsync(string labelId, CreateLabelReallocationRequest request);
         Task<BeneficialOwnerResponse> CreateBeneficialOwnerAsync(string customerId, CreateBeneficialOwnerRequest request);
         Task<GetBeneficialOwnersResponse> GetBeneficialOwnersAsync(string customerId, int limit, int offset);
         Task<BeneficialOwnerResponse> GetBeneficialOwnerAsync(string beneficialOwnerId);
@@ -172,6 +184,26 @@ namespace DwollaFullFlow.Api.Services
             }
 
             return location;
+        }
+
+        public async Task<FundingSource> CreatePlaidFundingSourceAsync(CreatePlaidFundingSourceRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<CreatePlaidFundingSourceRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/funding-sources"),
+                request,
+                headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the Plaid funding source.");
+            }
+
+            var fundingSourceResponse = await _client.GetAsync<FundingSource>(location, headers);
+            EnsureSuccess(fundingSourceResponse);
+            return fundingSourceResponse.Content;
         }
 
         public async Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset)
@@ -372,6 +404,15 @@ namespace DwollaFullFlow.Api.Services
             return response.Content;
         }
 
+        public async Task<GetBusinessClassificationsResponse> GetBusinessClassificationsAsync(int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/business-classifications?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetBusinessClassificationsResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
         public async Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset)
         {
             var headers = await BuildHeadersAsync();
@@ -517,6 +558,125 @@ namespace DwollaFullFlow.Api.Services
                 headers);
 
             EnsureSuccess(response);
+        }
+
+        public async Task<GetExchangePartnersResponse> GetExchangePartnersAsync(int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/exchange-partners?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetExchangePartnersResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<GetExchangesResponse> GetExchangesAsync(int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/exchanges?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetExchangesResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<ExchangeResponse> GetExchangeAsync(string exchangeId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/exchanges/{exchangeId}");
+            var response = await _client.GetAsync<ExchangeResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<ExchangeResponse> CreateExchangeAsync(CreateExchangeRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<CreateExchangeRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/exchanges"),
+                request,
+                headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the exchange.");
+            }
+
+            var exchangeResponse = await _client.GetAsync<ExchangeResponse>(location, headers);
+            EnsureSuccess(exchangeResponse);
+            return exchangeResponse.Content;
+        }
+
+        public async Task<Label> CreateLabelAsync(CreateLabelRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<CreateLabelRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/labels"),
+                request,
+                headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the label.");
+            }
+
+            var labelResponse = await _client.GetAsync<Label>(location, headers);
+            EnsureSuccess(labelResponse);
+            return labelResponse.Content;
+        }
+
+        public async Task<GetLabelsResponse> GetLabelsAsync(int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/labels?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetLabelsResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<Label> GetLabelAsync(string labelId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.GetAsync<Label>(new Uri($"{_client.ApiBaseAddress}/labels/{labelId}"), headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<LabelLedgerEntry> CreateLabelLedgerEntryAsync(string labelId, CreateLabelLedgerEntryRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/labels/{labelId}/ledger-entries");
+            var response = await _client.PostAsync<CreateLabelLedgerEntryRequest, EmptyResponse>(uri, request, headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location ?? uri;
+            var ledgerResponse = await _client.GetAsync<LabelLedgerEntry>(location, headers);
+            EnsureSuccess(ledgerResponse);
+            return ledgerResponse.Content;
+        }
+
+        public async Task<GetLabelLedgerEntriesResponse> GetLabelLedgerEntriesAsync(string labelId, int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/labels/{labelId}/ledger-entries?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetLabelLedgerEntriesResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<LabelReallocation> CreateLabelReallocationAsync(string labelId, CreateLabelReallocationRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/labels/{labelId}/reallocations");
+            var response = await _client.PostAsync<CreateLabelReallocationRequest, EmptyResponse>(uri, request, headers);
+            EnsureSuccess(response);
+
+            var location = response.Response?.Headers.Location ?? uri;
+            var reallocationResponse = await _client.GetAsync<LabelReallocation>(location, headers);
+            EnsureSuccess(reallocationResponse);
+            return reallocationResponse.Content;
         }
 
         private async Task<Customer> PerformCustomerActionAsync(string customerId, string action)

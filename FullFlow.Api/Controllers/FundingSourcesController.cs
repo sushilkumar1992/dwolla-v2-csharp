@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -40,6 +41,42 @@ namespace DwollaFullFlow.Api.Controllers
                 var fundingSource = await _gateway.GetFundingSourceAsync(location);
 
                 return Created(location, new FundingSourceSummaryDto
+                {
+                    Id = fundingSource.Id,
+                    Name = fundingSource.Name,
+                    BankAccountType = fundingSource.BankAccountType,
+                    Status = fundingSource.Status,
+                    Created = fundingSource.Created
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpPost("plaid")]
+        public async Task<ActionResult<FundingSourceSummaryDto>> CreatePlaidFundingSource([FromBody] CreatePlaidFundingSourceDto model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                var request = new CreatePlaidFundingSourceRequest
+                {
+                    Name = model.Name,
+                    PlaidToken = model.PlaidToken,
+                    Links = new Dictionary<string, Link>
+                    {
+                        { "customer", new Link { Href = new Uri($"{_gateway.ApiBaseAddress}/customers/{model.CustomerId}") } }
+                    }
+                };
+
+                var fundingSource = await _gateway.CreatePlaidFundingSourceAsync(request);
+                return Created(new Uri($"{_gateway.ApiBaseAddress}/funding-sources/{fundingSource.Id}"), new FundingSourceSummaryDto
                 {
                     Id = fundingSource.Id,
                     Name = fundingSource.Name,

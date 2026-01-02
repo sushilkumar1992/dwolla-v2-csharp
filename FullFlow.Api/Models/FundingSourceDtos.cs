@@ -50,6 +50,18 @@ namespace DwollaFullFlow.Api.Models
         public string? FailureReason { get; set; }
     }
 
+    public class CreatePlaidFundingSourceDto
+    {
+        [Required]
+        public string CustomerId { get; set; } = string.Empty;
+
+        [Required]
+        public string PlaidToken { get; set; } = string.Empty;
+
+        [Required]
+        public string Name { get; set; } = string.Empty;
+    }
+
     public class FundingSourceBalanceDto
     {
         public decimal Balance { get; set; }

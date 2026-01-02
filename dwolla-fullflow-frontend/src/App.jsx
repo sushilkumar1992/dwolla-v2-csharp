@@ -79,6 +79,36 @@ const initialRefund = {
   idempotencyKey: '',
 };
 
+const initialPlaidFundingSource = {
+  customerId: '',
+  plaidToken: '',
+  name: '',
+};
+
+const initialExchange = {
+  customerId: '',
+  token: '',
+  finicityApplicationId: '',
+};
+
+const initialLabel = {
+  amount: '',
+  currency: 'USD',
+};
+
+const initialLabelLedgerEntry = {
+  labelId: '',
+  amount: '',
+  currency: 'USD',
+};
+
+const initialLabelReallocation = {
+  sourceLabelId: '',
+  destinationLabelId: '',
+  amount: '',
+  currency: 'USD',
+};
+
 const initialWebhookSubscription = {
   url: '',
   secret: '',
@@ -137,6 +167,7 @@ function App() {
   const [latestMassPayment, setLatestMassPayment] = useState(null);
   const [massPaymentItems, setMassPaymentItems] = useState([]);
   const [massPaymentLookupId, setMassPaymentLookupId] = useState('');
+  const [plaidFundingForm, setPlaidFundingForm] = useState(initialPlaidFundingSource);
   const [fundingSources, setFundingSources] = useState([]);
   const [microDepositForm, setMicroDepositForm] = useState(initialMicroDeposit);
   const [microDepositStatus, setMicroDepositStatus] = useState(null);
@@ -166,6 +197,16 @@ function App() {
   const [beneficialOwnerLookupId, setBeneficialOwnerLookupId] = useState('');
   const [beneficialOwnershipForm, setBeneficialOwnershipForm] = useState(initialBeneficialOwnership);
   const [beneficialOwnershipStatus, setBeneficialOwnershipStatus] = useState(null);
+  const [businessClassifications, setBusinessClassifications] = useState([]);
+  const [exchangePartners, setExchangePartners] = useState([]);
+  const [exchangeForm, setExchangeForm] = useState(initialExchange);
+  const [exchanges, setExchanges] = useState([]);
+  const [labelForm, setLabelForm] = useState(initialLabel);
+  const [labels, setLabels] = useState([]);
+  const [ledgerEntryForm, setLedgerEntryForm] = useState(initialLabelLedgerEntry);
+  const [ledgerEntries, setLedgerEntries] = useState([]);
+  const [ledgerLabelId, setLedgerLabelId] = useState('');
+  const [reallocationForm, setReallocationForm] = useState(initialLabelReallocation);
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -216,6 +257,21 @@ function App() {
       setLatestFundingSource(created);
       setFundingForm(initialFundingSource);
     }, 'Funding source created successfully.');
+  };
+
+  const submitPlaidFundingSource = async (event) => {
+    event.preventDefault();
+    if (!plaidFundingForm.customerId || !plaidFundingForm.plaidToken || !plaidFundingForm.name) {
+      setFeedback({ type: 'error', message: 'Provide customer ID, Plaid token, and account name.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const created = await apiPost('/api/funding-sources/plaid', plaidFundingForm);
+      setLatestFundingSource(created);
+      setFundingSources((current) => [created, ...current]);
+      setPlaidFundingForm(initialPlaidFundingSource);
+    }, 'Plaid funding source created successfully.');
   };
 
   const submitTransfer = async (event) => {
@@ -404,6 +460,27 @@ function App() {
     }, 'Funding sources loaded.');
   };
 
+  const loadBusinessClassifications = async () => {
+    await withFeedback(async () => {
+      const results = await apiGet('/api/directory/business-classifications?limit=100&offset=0');
+      setBusinessClassifications(results);
+    }, 'Business classifications loaded.');
+  };
+
+  const loadExchangePartners = async () => {
+    await withFeedback(async () => {
+      const partners = await apiGet('/api/exchanges/partners?limit=25&offset=0');
+      setExchangePartners(partners);
+    }, 'Exchange partners loaded.');
+  };
+
+  const loadExchanges = async () => {
+    await withFeedback(async () => {
+      const list = await apiGet('/api/exchanges?limit=25&offset=0');
+      setExchanges(list);
+    }, 'Exchanges loaded.');
+  };
+
   const loadCustomerDocuments = async (event, customerIdOverride) => {
     event.preventDefault?.();
     const targetCustomer = customerIdOverride || documentLookupCustomerId || documentForm.customerId;
@@ -417,6 +494,93 @@ function App() {
       setCustomerDocuments(docs);
       setDocumentLookupCustomerId(targetCustomer);
     }, 'Customer documents loaded.');
+  };
+
+  const createExchange = async (event) => {
+    event.preventDefault();
+    if (!exchangeForm.customerId || !exchangeForm.token) {
+      setFeedback({ type: 'error', message: 'Provide customer ID and token to create an exchange.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const created = await apiPost('/api/exchanges', exchangeForm);
+      setExchanges((current) => [created, ...current]);
+      setExchangeForm(initialExchange);
+    }, 'Exchange created.');
+  };
+
+  const createLabel = async (event) => {
+    event.preventDefault();
+    if (!labelForm.amount) {
+      setFeedback({ type: 'error', message: 'Enter a label amount.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const created = await apiPost('/api/labels', {
+        amount: Number(labelForm.amount),
+        currency: labelForm.currency,
+      });
+      setLabels((current) => [created, ...current]);
+      setLabelForm(initialLabel);
+    }, 'Label created.');
+  };
+
+  const loadLabels = async () => {
+    await withFeedback(async () => {
+      const results = await apiGet('/api/labels?limit=50&offset=0');
+      setLabels(results);
+    }, 'Labels loaded.');
+  };
+
+  const loadLedgerEntries = async (event) => {
+    event.preventDefault?.();
+    const targetLabel = ledgerLabelId || ledgerEntryForm.labelId;
+    if (!targetLabel) {
+      setFeedback({ type: 'error', message: 'Provide a label ID to load ledger entries.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const entries = await apiGet(`/api/labels/${targetLabel}/ledger-entries?limit=50&offset=0`);
+      setLedgerEntries(entries);
+      setLedgerLabelId(targetLabel);
+    }, 'Ledger entries loaded.');
+  };
+
+  const createLedgerEntry = async (event) => {
+    event.preventDefault();
+    if (!ledgerEntryForm.labelId || !ledgerEntryForm.amount) {
+      setFeedback({ type: 'error', message: 'Provide label ID and amount.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const created = await apiPost(`/api/labels/${ledgerEntryForm.labelId}/ledger-entries`, {
+        amount: Number(ledgerEntryForm.amount),
+        currency: ledgerEntryForm.currency,
+      });
+      setLedgerEntries((current) => [created, ...current]);
+    }, 'Ledger entry posted.');
+  };
+
+  const createLabelReallocation = async (event) => {
+    event.preventDefault();
+    const { sourceLabelId, destinationLabelId, amount, currency } = reallocationForm;
+    if (!sourceLabelId || !destinationLabelId || !amount) {
+      setFeedback({ type: 'error', message: 'Provide source label, destination label, and amount.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      await apiPost(`/api/labels/${sourceLabelId}/reallocations`, {
+        destinationLabelId,
+        amount: Number(amount),
+        currency,
+      });
+      await loadLabels();
+    }, 'Label reallocation created.');
   };
 
   const checkFundingSourceBalance = async (event) => {
@@ -1180,6 +1344,31 @@ function App() {
       </section>
 
       <section>
+        <h2>Link Plaid Funding Source</h2>
+        <form className="form-grid" onSubmit={submitPlaidFundingSource}>
+          <label>
+            Customer ID
+            <input
+              name="customerId"
+              list="customerOptions"
+              value={plaidFundingForm.customerId}
+              onChange={handleChange(setPlaidFundingForm)}
+              required
+            />
+          </label>
+          <label>
+            Plaid Processor Token
+            <input name="plaidToken" value={plaidFundingForm.plaidToken} onChange={handleChange(setPlaidFundingForm)} required />
+          </label>
+          <label>
+            Account Nickname
+            <input name="name" value={plaidFundingForm.name} onChange={handleChange(setPlaidFundingForm)} required />
+          </label>
+          <button type="submit" disabled={busy}>Create from Plaid</button>
+        </form>
+      </section>
+
+      <section>
         <h2>Customer Funding Sources</h2>
         <form className="form-grid inline-form" onSubmit={loadFundingSources}>
           <label>
@@ -1727,6 +1916,256 @@ function App() {
             </p>
           </div>
         )}
+      </section>
+
+      <section>
+        <h2>Business Classifications</h2>
+        <div className="form-actions">
+          <button type="button" onClick={loadBusinessClassifications} disabled={busy}>Load Classifications</button>
+        </div>
+        {businessClassifications.length > 0 ? (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Industry Codes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {businessClassifications.map((bc) => (
+                  <tr key={bc.id}>
+                    <td>{bc.id}</td>
+                    <td>{bc.name}</td>
+                    <td>
+                      {bc.industryClassifications && bc.industryClassifications.length > 0 ? (
+                        <ul>
+                          {bc.industryClassifications.map((ic) => (
+                            <li key={ic.id}>{ic.id}: {ic.name}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span>n/a</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="small-note">No classifications loaded yet.</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Exchange Partners & Aggregator Exchanges</h2>
+        <div className="form-actions">
+          <button type="button" onClick={loadExchangePartners} disabled={busy}>Load Partners</button>
+          <button type="button" onClick={loadExchanges} disabled={busy}>Load Exchanges</button>
+        </div>
+
+        <form className="form-grid" onSubmit={createExchange}>
+          <label>
+            Customer ID
+            <input name="customerId" value={exchangeForm.customerId} onChange={handleChange(setExchangeForm)} required />
+          </label>
+          <label>
+            Processor Token
+            <input name="token" value={exchangeForm.token} onChange={handleChange(setExchangeForm)} required />
+          </label>
+          <label>
+            Finicity Application ID (optional)
+            <input
+              name="finicityApplicationId"
+              value={exchangeForm.finicityApplicationId}
+              onChange={handleChange(setExchangeForm)}
+              placeholder="Finicity applicationId"
+            />
+          </label>
+          <button type="submit" disabled={busy}>Create Exchange</button>
+        </form>
+
+        {exchangePartners.length > 0 && (
+          <div className="table-wrapper">
+            <h3>Partners</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exchangePartners.map((partner) => (
+                  <tr key={partner.id}>
+                    <td>{partner.name}</td>
+                    <td>{partner.status}</td>
+                    <td>{new Date(partner.created).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {exchanges.length > 0 && (
+          <div className="table-wrapper">
+            <h3>Exchanges</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exchanges.map((ex) => (
+                  <tr key={ex.id}>
+                    <td>{ex.id}</td>
+                    <td>{ex.status}</td>
+                    <td>{new Date(ex.created).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2>Label Balances</h2>
+        <div className="form-actions">
+          <button type="button" onClick={loadLabels} disabled={busy}>Load Labels</button>
+        </div>
+        <form className="form-grid" onSubmit={createLabel}>
+          <label>
+            Amount
+            <input name="amount" type="number" step="0.01" value={labelForm.amount} onChange={handleChange(setLabelForm)} required />
+          </label>
+          <label>
+            Currency
+            <input name="currency" value={labelForm.currency} onChange={handleChange(setLabelForm)} required />
+          </label>
+          <button type="submit" disabled={busy}>Create Label</button>
+        </form>
+
+        {labels.length > 0 && (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Amount</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {labels.map((label) => (
+                <tr key={label.id}>
+                  <td>{label.id}</td>
+                  <td>{label.amount} {label.currency}</td>
+                  <td>{new Date(label.created).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <h3>Ledger Entries</h3>
+        <form className="form-grid inline-form" onSubmit={loadLedgerEntries}>
+          <label>
+            Label ID
+            <input name="ledgerLabelId" value={ledgerLabelId} onChange={(e) => setLedgerLabelId(e.target.value)} />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Entries</button>
+          </div>
+        </form>
+
+        <form className="form-grid" onSubmit={createLedgerEntry}>
+          <label>
+            Label ID
+            <input name="labelId" value={ledgerEntryForm.labelId} onChange={handleChange(setLedgerEntryForm)} required />
+          </label>
+          <label>
+            Amount (use negative to debit)
+            <input
+              name="amount"
+              type="number"
+              step="0.01"
+              value={ledgerEntryForm.amount}
+              onChange={handleChange(setLedgerEntryForm)}
+              required
+            />
+          </label>
+          <label>
+            Currency
+            <input name="currency" value={ledgerEntryForm.currency} onChange={handleChange(setLedgerEntryForm)} required />
+          </label>
+          <button type="submit" disabled={busy}>Post Ledger Entry</button>
+        </form>
+
+        {ledgerEntries.length > 0 && (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Amount</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledgerEntries.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{entry.id}</td>
+                  <td>{entry.amount} {entry.currency}</td>
+                  <td>{new Date(entry.created).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <h3>Reallocate Balances</h3>
+        <form className="form-grid" onSubmit={createLabelReallocation}>
+          <label>
+            Source Label ID
+            <input
+              name="sourceLabelId"
+              value={reallocationForm.sourceLabelId}
+              onChange={handleChange(setReallocationForm)}
+              required
+            />
+          </label>
+          <label>
+            Destination Label ID
+            <input
+              name="destinationLabelId"
+              value={reallocationForm.destinationLabelId}
+              onChange={handleChange(setReallocationForm)}
+              required
+            />
+          </label>
+          <label>
+            Amount
+            <input
+              name="amount"
+              type="number"
+              step="0.01"
+              value={reallocationForm.amount}
+              onChange={handleChange(setReallocationForm)}
+              required
+            />
+          </label>
+          <label>
+            Currency
+            <input name="currency" value={reallocationForm.currency} onChange={handleChange(setReallocationForm)} required />
+          </label>
+          <button type="submit" disabled={busy}>Reallocate</button>
+        </form>
       </section>
 
       <section>

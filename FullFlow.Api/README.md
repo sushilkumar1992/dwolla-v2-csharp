@@ -45,6 +45,7 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/customers/{customerId}/beneficial-owners/{beneficialOwnerId}` – attach an existing beneficial owner to a customer
 - `GET /api/beneficial-owners/{beneficialOwnerId}` – retrieve a specific beneficial owner
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
+- `POST /api/funding-sources/plaid` – create a funding source from a Plaid processor token for a customer
 - `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
 - `GET /api/funding-sources/{fundingSourceId}/balance` – fetch the current balance for a funding source
 - `POST /api/funding-sources/{fundingSourceId}/micro-deposits/initiate` – trigger Dwolla micro-deposits to verify a funding source
@@ -65,6 +66,17 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `GET /api/webhooks/subscriptions` – list webhook subscriptions configured for the application
 - `POST /api/webhooks/subscriptions` – create a webhook subscription for the provided URL and secret
 - `DELETE /api/webhooks/subscriptions/{subscriptionId}` – delete a webhook subscription by ID
+- `GET /api/directory/business-classifications` – list Dwolla business classifications and their industry codes
+- `GET /api/exchanges/partners` – list enabled exchange partners (MX/Finicity) for aggregator flows
+- `GET /api/exchanges` – page through created exchanges
+- `GET /api/exchanges/{exchangeId}` – fetch a single exchange
+- `POST /api/exchanges` – create an MX/Finicity exchange for a customer using a processor token
+- `POST /api/labels` – create a label balance
+- `GET /api/labels` – list labels
+- `GET /api/labels/{labelId}` – fetch a single label
+- `POST /api/labels/{labelId}/ledger-entries` – credit or debit a label directly
+- `GET /api/labels/{labelId}/ledger-entries` – list ledger entries on a label
+- `POST /api/labels/{labelId}/reallocations` – move balance between labels
 
 ### Webhooks
 
