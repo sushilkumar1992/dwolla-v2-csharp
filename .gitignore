@@ -8,3 +8,5 @@ out
 .DS_Store
 node_modules
 dist
+FullFlow.Api/data
+FullFlow.Api/webhook-events.jsonl

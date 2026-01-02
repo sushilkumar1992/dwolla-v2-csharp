@@ -50,11 +50,12 @@ namespace DwollaFullFlow.Api.Controllers
             }
 
             var record = WebhookEventRecord.FromJson(payload);
-            _store.Add(record);
+            var stored = _store.Add(record);
 
             return Ok(new
             {
-                received = true,
+                received = stored,
+                duplicate = !stored,
                 record.Id,
                 record.Topic,
                 record.ResourceId,

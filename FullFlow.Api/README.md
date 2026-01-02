@@ -11,6 +11,8 @@ Set environment variables or configuration values for the Dwolla credentials bef
 - `Dwolla__IsSandbox` – `true` for sandbox (default), `false` for production
 - `Dwolla__WebhookSecret` – shared secret used to validate Dwolla webhook signatures
 - `Cors__AllowedOrigins` – optional list of origins allowed to call the API (defaults to Vite dev server URLs)
+- `WebhookStore__MaxEvents` – maximum webhook events retained in the log (defaults to 500)
+- `WebhookStore__FilePath` – file path for persisting webhook events across restarts
 
 For local development you can also edit `appsettings.json` or provide a user secrets store. Keep secrets out of source control.
 
@@ -63,5 +65,7 @@ For local development you can also edit `appsettings.json` or provide a user sec
 
 Provide `Dwolla__WebhookSecret` from your Dwolla application settings and configure Dwolla to send webhooks to
 `/api/webhooks`. The API validates the Dwolla signature header, logs accepted payloads in memory, and exposes the
-recent event log through `GET /api/webhooks/events` for quick inspection while developing locally. Use the webhook
-subscription endpoints to manage callback URLs and secrets directly from this API when automating setup.
+recent event log through `GET /api/webhooks/events` for quick inspection while developing locally. The webhook store
+is durable by default, persisting the log to `WebhookStore__FilePath` and deduplicating events by Dwolla ID or payload
+hash to protect against replays. Use the webhook subscription endpoints to manage callback URLs and secrets directly
+from this API when automating setup.

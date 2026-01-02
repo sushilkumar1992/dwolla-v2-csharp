@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<DwollaOptions>(builder.Configuration.GetSection("Dwolla"));
+builder.Services.Configure<WebhookStoreOptions>(builder.Configuration.GetSection("WebhookStore"));
 builder.Services.AddMemoryCache();
 builder.Services.AddCors(options =>
 {
@@ -23,7 +24,7 @@ builder.Services.AddSingleton<IDwollaClient>(sp =>
 });
 builder.Services.AddScoped<IDwollaGateway, DwollaGateway>();
 builder.Services.AddSingleton<IWebhookVerifier, HmacSha256WebhookVerifier>();
-builder.Services.AddSingleton<IWebhookStore, InMemoryWebhookStore>();
+builder.Services.AddSingleton<IWebhookStore, PersistentWebhookStore>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

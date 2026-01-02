@@ -30,7 +30,7 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
 - Cancel transfers when still eligible and confirm the resulting status
 - Query Dwolla events directly (filterable by resource and topic) alongside local webhook logs
 - Create, list, and delete webhook subscriptions to pair with the webhook receiver
-- View validated webhook events posted to the backend webhook receiver
+- View validated webhook events posted to the backend webhook receiver with replay protection and persistence
 - Create, list, attach, and certify business beneficial owners with detail lookups
 
 ## Build
