@@ -107,4 +107,18 @@ namespace DwollaFullFlow.Api.Models
     {
         public string Token { get; set; } = string.Empty;
     }
+
+    public class CustomerBalanceDto
+    {
+        public decimal Available { get; set; }
+        public string Currency { get; set; } = string.Empty;
+        public DateTime? LastUpdated { get; set; }
+    }
+
+    public class BeneficialOwnershipStatusDto
+    {
+        public string Status { get; set; } = string.Empty;
+        public DateTime? Created { get; set; }
+        public DateTime? Certified { get; set; }
+    }
 }

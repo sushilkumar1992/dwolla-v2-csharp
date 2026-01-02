@@ -113,12 +113,45 @@ namespace DwollaFullFlow.Api.Controllers
             }
         }
 
+        [HttpGet("customers/{customerId}/beneficial-ownership")]
+        public async Task<ActionResult<BeneficialOwnershipStatusDto>> GetBeneficialOwnershipStatus(string customerId)
+        {
+            try
+            {
+                var status = await _gateway.GetBeneficialOwnershipStatusAsync(customerId);
+                return Ok(new BeneficialOwnershipStatusDto
+                {
+                    Status = status.Status,
+                    Created = status.Created,
+                    Certified = status.Certified
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
         [HttpPost("customers/{customerId}/beneficial-owners/{beneficialOwnerId}")]
         public async Task<IActionResult> AttachExistingBeneficialOwner(string customerId, string beneficialOwnerId)
         {
             try
             {
                 await _gateway.AttachBeneficialOwnerAsync(customerId, beneficialOwnerId);
+                return NoContent();
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpDelete("beneficial-owners/{beneficialOwnerId}")]
+        public async Task<IActionResult> DeleteBeneficialOwner(string beneficialOwnerId)
+        {
+            try
+            {
+                await _gateway.DeleteBeneficialOwnerAsync(beneficialOwnerId);
                 return NoContent();
             }
             catch (DwollaApiException ex)

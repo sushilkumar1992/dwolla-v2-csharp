@@ -188,5 +188,19 @@ namespace DwollaFullFlow.Api.Controllers
                 return ProblemFromDwolla(ex);
             }
         }
+
+        [HttpDelete("{labelId}")]
+        public async Task<IActionResult> DeleteLabel(string labelId)
+        {
+            try
+            {
+                await _gateway.DeleteLabelAsync(labelId);
+                return NoContent();
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
     }
 }

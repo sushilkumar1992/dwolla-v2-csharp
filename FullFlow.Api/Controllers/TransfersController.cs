@@ -44,6 +44,25 @@ namespace DwollaFullFlow.Api.Controllers
             }
         }
 
+        [HttpGet("{transferId}/failure")]
+        public async Task<ActionResult<TransferFailureDto>> GetTransferFailure(string transferId)
+        {
+            try
+            {
+                var failure = await _gateway.GetTransferFailureAsync(transferId);
+                return Ok(new TransferFailureDto
+                {
+                    Code = failure.Code,
+                    Description = failure.Description,
+                    Explanation = failure.Explanation
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
         [HttpPost("{transferId}/cancel")]
         public async Task<ActionResult<TransferDetailsDto>> CancelTransfer(string transferId)
         {

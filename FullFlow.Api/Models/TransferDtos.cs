@@ -113,4 +113,11 @@ namespace DwollaFullFlow.Api.Models
         public string? CorrelationId { get; set; }
         public string? IdempotencyKey { get; set; }
     }
+
+    public class TransferFailureDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
+    }
 }

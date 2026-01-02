@@ -52,6 +52,25 @@ namespace DwollaFullFlow.Api.Controllers
             }
         }
 
+        [HttpGet("{id}/balance")]
+        public async Task<ActionResult<CustomerBalanceDto>> GetCustomerBalance(string id)
+        {
+            try
+            {
+                var balance = await _gateway.GetCustomerBalanceAsync(id);
+                return Ok(new CustomerBalanceDto
+                {
+                    Available = balance.Balance?.Value ?? 0,
+                    Currency = balance.Balance?.Currency ?? "USD",
+                    LastUpdated = balance.LastUpdated
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
         [HttpPost]
         public async Task<ActionResult<CustomerSummaryDto>> CreateCustomer([FromBody] CreateCustomerDto model)
         {

@@ -197,6 +197,7 @@ function App() {
   const [beneficialOwnerLookupId, setBeneficialOwnerLookupId] = useState('');
   const [beneficialOwnershipForm, setBeneficialOwnershipForm] = useState(initialBeneficialOwnership);
   const [beneficialOwnershipStatus, setBeneficialOwnershipStatus] = useState(null);
+  const [beneficialOwnerDeleteId, setBeneficialOwnerDeleteId] = useState('');
   const [businessClassifications, setBusinessClassifications] = useState([]);
   const [exchangePartners, setExchangePartners] = useState([]);
   const [exchangeForm, setExchangeForm] = useState(initialExchange);
@@ -207,6 +208,12 @@ function App() {
   const [ledgerEntries, setLedgerEntries] = useState([]);
   const [ledgerLabelId, setLedgerLabelId] = useState('');
   const [reallocationForm, setReallocationForm] = useState(initialLabelReallocation);
+  const [customerBalanceId, setCustomerBalanceId] = useState('');
+  const [customerBalance, setCustomerBalance] = useState(null);
+  const [transferFailureId, setTransferFailureId] = useState('');
+  const [transferFailure, setTransferFailure] = useState(null);
+  const [microDepositStatusId, setMicroDepositStatusId] = useState('');
+  const [rootDiscovery, setRootDiscovery] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -237,6 +244,13 @@ function App() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const loadRoot = async () => {
+    await withFeedback(async () => {
+      const root = await apiGet('/api/root');
+      setRootDiscovery(root);
+    }, 'Dwolla API root loaded.');
   };
 
   const submitCustomer = async (event) => {
@@ -583,6 +597,13 @@ function App() {
     }, 'Label reallocation created.');
   };
 
+  const deleteLabel = async (labelId) => {
+    await withFeedback(async () => {
+      await apiDelete(`/api/labels/${labelId}`);
+      setLabels((current) => current.filter((l) => l.id !== labelId));
+    }, 'Label deleted.');
+  };
+
   const checkFundingSourceBalance = async (event) => {
     event.preventDefault();
     if (!balanceLookupId) {
@@ -594,6 +615,19 @@ function App() {
       const balance = await apiGet(`/api/funding-sources/${balanceLookupId}/balance`);
       setFundingSourceBalance(balance);
     }, 'Funding source balance loaded.');
+  };
+
+  const lookupCustomerBalance = async (event) => {
+    event.preventDefault();
+    if (!customerBalanceId) {
+      setFeedback({ type: 'error', message: 'Enter a customer ID to check balance.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const balance = await apiGet(`/api/customers/${customerBalanceId}/balance`);
+      setCustomerBalance(balance);
+    }, 'Customer balance loaded.');
   };
 
   const createBeneficialOwner = async (event) => {
@@ -657,6 +691,19 @@ function App() {
     }, 'Beneficial ownership certification submitted.');
   };
 
+  const fetchBeneficialOwnershipStatus = async (event) => {
+    event.preventDefault();
+    if (!beneficialOwnershipForm.customerId) {
+      setFeedback({ type: 'error', message: 'Provide a customer ID to fetch beneficial ownership status.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const status = await apiGet(`/api/customers/${beneficialOwnershipForm.customerId}/beneficial-ownership`);
+      setBeneficialOwnershipStatus(status);
+    }, 'Beneficial ownership status loaded.');
+  };
+
   const attachBeneficialOwner = async (event) => {
     event.preventDefault();
     const { customerId, beneficialOwnerId } = beneficialOwnershipForm;
@@ -670,6 +717,20 @@ function App() {
       await listBeneficialOwners({ preventDefault: () => {} });
     }, 'Beneficial owner attached.');
     setBeneficialOwnershipForm((current) => ({ ...current, beneficialOwnerId: '' }));
+  };
+
+  const deleteBeneficialOwner = async (event) => {
+    event.preventDefault();
+    if (!beneficialOwnerDeleteId) {
+      setFeedback({ type: 'error', message: 'Provide a beneficial owner ID to delete.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      await apiDelete(`/api/beneficial-owners/${beneficialOwnerDeleteId}`);
+      setBeneficialOwners((current) => current.filter((o) => o.id !== beneficialOwnerDeleteId));
+      setBeneficialOwnerDeleteId('');
+    }, 'Beneficial owner removed.');
   };
 
   const initiateMicroDeposits = async (event) => {
@@ -708,6 +769,20 @@ function App() {
     }, 'Micro-deposits verified.');
   };
 
+  const loadMicroDepositStatus = async (event) => {
+    event.preventDefault();
+    const targetId = microDepositStatusId || microDepositForm.fundingSourceId;
+    if (!targetId) {
+      setFeedback({ type: 'error', message: 'Provide a funding source ID to check micro-deposit status.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const status = await apiGet(`/api/funding-sources/${targetId}/micro-deposits`);
+      setMicroDepositStatus(status);
+    }, 'Micro-deposit status loaded.');
+  };
+
   const uploadCustomerDocument = async (event) => {
     event.preventDefault();
     if (!documentForm.customerId) {
@@ -743,6 +818,19 @@ function App() {
       const details = await apiGet(`/api/transfers/${transferLookupId}`);
       setTransferDetails(details);
     }, 'Transfer status loaded.');
+  };
+
+  const lookupTransferFailure = async (event) => {
+    event.preventDefault();
+    if (!transferFailureId) {
+      setFeedback({ type: 'error', message: 'Enter a transfer ID to inspect failure details.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const failure = await apiGet(`/api/transfers/${transferFailureId}/failure`);
+      setTransferFailure(failure);
+    }, 'Transfer failure loaded.');
   };
 
   const cancelTransfer = async (event) => {
@@ -1241,6 +1329,22 @@ function App() {
           </div>
         </form>
 
+        <form className="form-grid inline-form" onSubmit={fetchBeneficialOwnershipStatus}>
+          <label>
+            Customer ID
+            <input
+              name="beneficialOwnershipCustomerId"
+              list="customerOptions"
+              value={beneficialOwnershipForm.customerId}
+              onChange={(e) => setBeneficialOwnershipForm((current) => ({ ...current, customerId: e.target.value }))}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Refresh Ownership Status</button>
+          </div>
+        </form>
+
         <form className="form-grid inline-form" onSubmit={fetchBeneficialOwnerDetail}>
           <label>
             Beneficial Owner ID
@@ -1253,6 +1357,21 @@ function App() {
           </label>
           <div className="form-actions">
             <button type="submit" disabled={busy}>Fetch Beneficial Owner</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={deleteBeneficialOwner}>
+          <label>
+            Beneficial Owner ID
+            <input
+              name="beneficialOwnerDeleteId"
+              value={beneficialOwnerDeleteId}
+              onChange={(e) => setBeneficialOwnerDeleteId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Delete Beneficial Owner</button>
           </div>
         </form>
 
@@ -1458,6 +1577,35 @@ function App() {
       </section>
 
       <section>
+        <h2>Customer Balance</h2>
+        <form className="form-grid inline-form" onSubmit={lookupCustomerBalance}>
+          <label>
+            Customer ID
+            <input
+              name="customerBalanceId"
+              list="customerOptions"
+              value={customerBalanceId}
+              onChange={(e) => setCustomerBalanceId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Get balance</button>
+          </div>
+        </form>
+        {customerBalance && (
+          <div className="transfer-details">
+            <p>
+              Available: <strong>{customerBalance.available}</strong> {customerBalance.currency || 'USD'}
+            </p>
+            <p className="small-note">
+              Last updated: {customerBalance.lastUpdated ? new Date(customerBalance.lastUpdated).toLocaleString() : 'n/a'}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section>
         <h2>Verify Funding Source (Micro-deposits)</h2>
         <form className="form-grid inline-form" onSubmit={initiateMicroDeposits}>
           <label>
@@ -1472,6 +1620,21 @@ function App() {
           </label>
           <div className="form-actions">
             <button type="submit" disabled={busy}>Send micro-deposits</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={loadMicroDepositStatus}>
+          <label>
+            Funding Source ID
+            <input
+              name="microDepositStatusId"
+              list="fundingSourceOptions"
+              value={microDepositStatusId}
+              onChange={(e) => setMicroDepositStatusId(e.target.value)}
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Refresh status</button>
           </div>
         </form>
 
@@ -1615,6 +1778,26 @@ function App() {
             <p className="small-note">
               Source: {transferDetails.sourceFundingSourceId || 'unknown'} • Destination: {transferDetails.destinationFundingSourceId || 'unknown'}
             </p>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2>Transfer Failure Details</h2>
+        <form className="form-grid inline-form" onSubmit={lookupTransferFailure}>
+          <label>
+            Transfer ID
+            <input value={transferFailureId} onChange={(e) => setTransferFailureId(e.target.value)} required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Failure</button>
+          </div>
+        </form>
+        {transferFailure && (
+          <div className="transfer-details">
+            <p>Code: {transferFailure.code}</p>
+            <p>Description: {transferFailure.description}</p>
+            <p className="small-note">Explanation: {transferFailure.explanation}</p>
           </div>
         )}
       </section>
@@ -2060,6 +2243,7 @@ function App() {
                 <th>ID</th>
                 <th>Amount</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -2068,6 +2252,11 @@ function App() {
                   <td>{label.id}</td>
                   <td>{label.amount} {label.currency}</td>
                   <td>{new Date(label.created).toLocaleString()}</td>
+                  <td>
+                    <button type="button" onClick={() => deleteLabel(label.id)} disabled={busy}>
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -2286,6 +2475,25 @@ function App() {
           </table>
         ) : (
           <p className="small-note">No webhook events captured yet.</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Dwolla API Root</h2>
+        <div className="form-actions">
+          <button type="button" onClick={loadRoot} disabled={busy}>Load Root</button>
+        </div>
+        {rootDiscovery && (
+          <div className="transfer-details">
+            <p>API Base: {rootDiscovery.apiBaseAddress}</p>
+            <ul className="small-list">
+              {Object.entries(rootDiscovery.links).map(([key, href]) => (
+                <li key={key}>
+                  <strong>{key}</strong>: {href}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 

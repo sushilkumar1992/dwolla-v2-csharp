@@ -14,6 +14,7 @@ namespace DwollaFullFlow.Api.Services
     {
         string ApiBaseAddress { get; }
         Task<TokenResponse> GetAppTokenAsync();
+        Task<RootResponse> GetRootAsync();
         Task<Customer> CreateCustomerAsync(CreateCustomerRequest request);
         Task<GetCustomersResponse> GetCustomersAsync(int limit, int offset);
         Task<Customer> GetCustomerAsync(string customerId);
@@ -23,18 +24,21 @@ namespace DwollaFullFlow.Api.Services
         Task<Customer> ReactivateCustomerAsync(string customerId);
         Task<Customer> UpgradeCustomerAsync(string customerId);
         Task<IavTokenResponse> GetIavTokenAsync(string customerId);
+        Task<BalanceResponse> GetCustomerBalanceAsync(string customerId);
         Task<Uri> CreateFundingSourceAsync(string customerId, CreateFundingSourceRequest request);
         Task<FundingSource> CreatePlaidFundingSourceAsync(CreatePlaidFundingSourceRequest request);
         Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset);
         Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri);
         Task<FundingSource> GetFundingSourceAsync(string fundingSourceId);
         Task<BalanceResponse> GetFundingSourceBalanceAsync(string fundingSourceId);
+        Task<MicroDepositsResponse> GetMicroDepositStatusAsync(string fundingSourceId);
         Task<MicroDepositsResponse> InitiateMicroDepositsAsync(string fundingSourceId);
         Task<MicroDepositsResponse> VerifyMicroDepositsAsync(string fundingSourceId, decimal amount1, decimal amount2, string currency = "USD");
         Task<Uri> CreateTransferAsync(CreateTransferRequest request, string? idempotencyKey = null);
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
         Task<TransferResponse> CancelTransferAsync(string transferId);
+        Task<TransferFailureResponse> GetTransferFailureAsync(string transferId);
         Task<Uri> CreateMassPaymentAsync(CreateMasspaymentRequest request, string? idempotencyKey = null);
         Task<MasspaymentResponse> GetMassPaymentAsync(string massPaymentId);
         Task<GetMassPaymentItemsResponse> GetMassPaymentItemsAsync(string massPaymentId, int limit, int offset);
@@ -63,7 +67,10 @@ namespace DwollaFullFlow.Api.Services
         Task<GetBeneficialOwnersResponse> GetBeneficialOwnersAsync(string customerId, int limit, int offset);
         Task<BeneficialOwnerResponse> GetBeneficialOwnerAsync(string beneficialOwnerId);
         Task<BeneficialOwnershipResponse> CertifyBeneficialOwnershipAsync(string customerId, CertifyBeneficialOwnershipRequest request);
+        Task<BeneficialOwnershipResponse> GetBeneficialOwnershipStatusAsync(string customerId);
         Task AttachBeneficialOwnerAsync(string customerId, string beneficialOwnerId);
+        Task DeleteBeneficialOwnerAsync(string beneficialOwnerId);
+        Task DeleteLabelAsync(string labelId);
     }
 
     public class DwollaGateway : IDwollaGateway
@@ -80,6 +87,14 @@ namespace DwollaFullFlow.Api.Services
             _client = client;
             _options = options.Value;
             _cache = cache;
+        }
+
+        public async Task<RootResponse> GetRootAsync()
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.GetAsync<RootResponse>(new Uri(_client.ApiBaseAddress), headers);
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         public async Task<TokenResponse> GetAppTokenAsync()
@@ -171,6 +186,15 @@ namespace DwollaFullFlow.Api.Services
             return response.Content;
         }
 
+        public async Task<BalanceResponse> GetCustomerBalanceAsync(string customerId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/balance");
+            var response = await _client.GetAsync<BalanceResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
         public async Task<Uri> CreateFundingSourceAsync(string customerId, CreateFundingSourceRequest request)
         {
             var headers = await BuildHeadersAsync();
@@ -211,6 +235,15 @@ namespace DwollaFullFlow.Api.Services
             var headers = await BuildHeadersAsync();
             var uri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/funding-sources?limit={limit}&offset={offset}");
             var response = await _client.GetAsync<GetFundingSourcesResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<MicroDepositsResponse> GetMicroDepositStatusAsync(string fundingSourceId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/funding-sources/{fundingSourceId}/micro-deposits");
+            var response = await _client.GetAsync<MicroDepositsResponse>(uri, headers);
             EnsureSuccess(response);
             return response.Content;
         }
@@ -314,6 +347,15 @@ namespace DwollaFullFlow.Api.Services
             var transferResponse = await _client.GetAsync<TransferResponse>(transferUri, headers);
             EnsureSuccess(transferResponse);
             return transferResponse.Content;
+        }
+
+        public async Task<TransferFailureResponse> GetTransferFailureAsync(string transferId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}/failure");
+            var response = await _client.GetAsync<TransferFailureResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         public async Task<Uri> CreateMassPaymentAsync(CreateMasspaymentRequest request, string? idempotencyKey = null)
@@ -549,6 +591,17 @@ namespace DwollaFullFlow.Api.Services
             return response.Content;
         }
 
+        public async Task<BeneficialOwnershipResponse> GetBeneficialOwnershipStatusAsync(string customerId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.GetAsync<BeneficialOwnershipResponse>(
+                new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/beneficial-ownership"),
+                headers);
+
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
         public async Task AttachBeneficialOwnerAsync(string customerId, string beneficialOwnerId)
         {
             var headers = await BuildHeadersAsync();
@@ -557,6 +610,13 @@ namespace DwollaFullFlow.Api.Services
                 new { },
                 headers);
 
+            EnsureSuccess(response);
+        }
+
+        public async Task DeleteBeneficialOwnerAsync(string beneficialOwnerId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.DeleteAsync(new Uri($"{_client.ApiBaseAddress}/beneficial-owners/{beneficialOwnerId}"), new { }, headers);
             EnsureSuccess(response);
         }
 
@@ -677,6 +737,13 @@ namespace DwollaFullFlow.Api.Services
             var reallocationResponse = await _client.GetAsync<LabelReallocation>(location, headers);
             EnsureSuccess(reallocationResponse);
             return reallocationResponse.Content;
+        }
+
+        public async Task DeleteLabelAsync(string labelId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.DeleteAsync(new Uri($"{_client.ApiBaseAddress}/labels/{labelId}"), new { }, headers);
+            EnsureSuccess(response);
         }
 
         private async Task<Customer> PerformCustomerActionAsync(string customerId, string action)

@@ -28,9 +28,11 @@ For local development you can also edit `appsettings.json` or provide a user sec
 ## Key Endpoints
 
 - `POST /api/auth/token` – obtain an application access token
+- `GET /api/root` – fetch the Dwolla root resource with discovered links
 - `POST /api/customers` – create a personal or business customer
 - `GET /api/customers` – list customers (paged)
 - `GET /api/customers/{customerId}` – fetch a single customer
+- `GET /api/customers/{customerId}/balance` – fetch a customer’s balance funding source amount
 - `PUT /api/customers/{customerId}` – update core customer profile details
 - `POST /api/customers/{customerId}/suspend` – suspend a customer
 - `POST /api/customers/{customerId}/deactivate` – deactivate a customer
@@ -42,16 +44,20 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/customers/{customerId}/beneficial-owners` – create and attach a beneficial owner to a business customer
 - `GET /api/customers/{customerId}/beneficial-owners` – list beneficial owners for a customer (paged)
 - `POST /api/customers/{customerId}/beneficial-ownership/certify` – certify beneficial ownership status for a business
+- `GET /api/customers/{customerId}/beneficial-ownership` – retrieve current beneficial ownership status for a business customer
 - `POST /api/customers/{customerId}/beneficial-owners/{beneficialOwnerId}` – attach an existing beneficial owner to a customer
 - `GET /api/beneficial-owners/{beneficialOwnerId}` – retrieve a specific beneficial owner
+- `DELETE /api/beneficial-owners/{beneficialOwnerId}` – remove a beneficial owner from Dwolla
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
 - `POST /api/funding-sources/plaid` – create a funding source from a Plaid processor token for a customer
 - `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
 - `GET /api/funding-sources/{fundingSourceId}/balance` – fetch the current balance for a funding source
+- `GET /api/funding-sources/{fundingSourceId}/micro-deposits` – retrieve the current micro-deposit verification status
 - `POST /api/funding-sources/{fundingSourceId}/micro-deposits/initiate` – trigger Dwolla micro-deposits to verify a funding source
 - `POST /api/funding-sources/{fundingSourceId}/micro-deposits/verify` – submit the two micro-deposit amounts to complete verification
 - `POST /api/transfers` – initiate a transfer between two funding sources
 - `GET /api/transfers/{transferId}` – fetch transfer details and status by ID
+- `GET /api/transfers/{transferId}/failure` – retrieve transfer failure detail when available
 - `POST /api/transfers/{transferId}/cancel` – cancel a transfer that is still cancelable
 - `POST /api/transfers/{transferId}/refunds` – submit a refund for a completed transfer with optional idempotency key
 - `GET /api/transfers/{transferId}/returns` – list return records for a transfer to understand failure reasons
@@ -74,6 +80,7 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/labels` – create a label balance
 - `GET /api/labels` – list labels
 - `GET /api/labels/{labelId}` – fetch a single label
+- `DELETE /api/labels/{labelId}` – remove a label balance
 - `POST /api/labels/{labelId}/ledger-entries` – credit or debit a label directly
 - `GET /api/labels/{labelId}/ledger-entries` – list ledger entries on a label
 - `POST /api/labels/{labelId}/reallocations` – move balance between labels
