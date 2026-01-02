@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { apiDelete, apiGet, apiPost, apiPostForm } from './api';
+import { apiDelete, apiGet, apiPost, apiPostForm, apiPut } from './api';
 
 const initialCustomer = {
   firstName: '',
@@ -13,6 +13,29 @@ const initialCustomer = {
   postalCode: '',
   phone: '',
   ipAddress: '',
+};
+
+const initialCustomerUpdate = {
+  id: '',
+  firstName: '',
+  lastName: '',
+  email: '',
+  type: '',
+  address1: '',
+  address2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  phone: '',
+  ipAddress: '',
+  dateOfBirth: '',
+  ssn: '',
+  businessName: '',
+  businessType: '',
+  businessClassification: '',
+  ein: '',
+  doingBusinessAs: '',
+  website: '',
 };
 
 const initialFundingSource = {
@@ -49,6 +72,28 @@ const initialDocumentUpload = {
   file: null,
 };
 
+const initialBeneficialOwner = {
+  customerId: '',
+  firstName: '',
+  lastName: '',
+  dateOfBirth: '',
+  ssn: '',
+  address1: '',
+  address2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: 'US',
+  passportNumber: '',
+  passportCountry: 'US',
+};
+
+const initialBeneficialOwnership = {
+  customerId: '',
+  status: 'certified',
+  beneficialOwnerId: '',
+};
+
 function Feedback({ feedback }) {
   if (!feedback?.message) return null;
   return (
@@ -60,6 +105,11 @@ function Feedback({ feedback }) {
 
 function App() {
   const [customerForm, setCustomerForm] = useState(initialCustomer);
+  const [customerUpdateForm, setCustomerUpdateForm] = useState(initialCustomerUpdate);
+  const [customerActionId, setCustomerActionId] = useState('');
+  const [customerUpgradeId, setCustomerUpgradeId] = useState('');
+  const [customerIavId, setCustomerIavId] = useState('');
+  const [iavToken, setIavToken] = useState('');
   const [fundingForm, setFundingForm] = useState(initialFundingSource);
   const [transferForm, setTransferForm] = useState(initialTransfer);
   const [customers, setCustomers] = useState([]);
@@ -85,6 +135,12 @@ function App() {
   const [documentForm, setDocumentForm] = useState(initialDocumentUpload);
   const [customerDocuments, setCustomerDocuments] = useState([]);
   const [documentLookupCustomerId, setDocumentLookupCustomerId] = useState('');
+  const [beneficialOwnerForm, setBeneficialOwnerForm] = useState(initialBeneficialOwner);
+  const [beneficialOwners, setBeneficialOwners] = useState([]);
+  const [beneficialOwnerDetail, setBeneficialOwnerDetail] = useState(null);
+  const [beneficialOwnerLookupId, setBeneficialOwnerLookupId] = useState('');
+  const [beneficialOwnershipForm, setBeneficialOwnershipForm] = useState(initialBeneficialOwnership);
+  const [beneficialOwnershipStatus, setBeneficialOwnershipStatus] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -157,6 +213,75 @@ function App() {
     }, 'Customers loaded.');
   };
 
+  const updateCustomer = async (event) => {
+    event.preventDefault();
+    if (!customerUpdateForm.id) {
+      setFeedback({ type: 'error', message: 'Provide a customer ID to update.' });
+      return;
+    }
+
+    const { id, ...payload } = customerUpdateForm;
+    const trimmedPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== '' && value !== null && value !== undefined),
+    );
+
+    await withFeedback(async () => {
+      const updated = await apiPut(`/api/customers/${id}`, trimmedPayload);
+      setCustomers((current) => current.map((c) => (c.id === updated.id ? updated : c)));
+      setCustomerUpdateForm(initialCustomerUpdate);
+    }, 'Customer updated.');
+  };
+
+  const changeCustomerStatus = async (customerId, action, successMessage) => {
+    if (!customerId) {
+      setFeedback({ type: 'error', message: 'Enter a customer ID first.' });
+      return null;
+    }
+
+    const result = await withFeedback(async () => apiPost(`/api/customers/${customerId}/${action}`), successMessage);
+    setCustomers((current) =>
+      current.map((customer) => (customer.id === result.id ? { ...customer, status: result.status } : customer)),
+    );
+    return result;
+  };
+
+  const suspendCustomer = async (event) => {
+    event.preventDefault();
+    await changeCustomerStatus(customerActionId, 'suspend', 'Customer suspended.');
+    setCustomerActionId('');
+  };
+
+  const deactivateCustomer = async (event) => {
+    event.preventDefault();
+    await changeCustomerStatus(customerActionId, 'deactivate', 'Customer deactivated.');
+    setCustomerActionId('');
+  };
+
+  const reactivateCustomer = async (event) => {
+    event.preventDefault();
+    await changeCustomerStatus(customerActionId, 'reactivate', 'Customer reactivated.');
+    setCustomerActionId('');
+  };
+
+  const upgradeCustomer = async (event) => {
+    event.preventDefault();
+    await changeCustomerStatus(customerUpgradeId, 'upgrade', 'Customer upgrade requested.');
+    setCustomerUpgradeId('');
+  };
+
+  const fetchIavToken = async (event) => {
+    event.preventDefault();
+    if (!customerIavId) {
+      setFeedback({ type: 'error', message: 'Provide a customer ID to request an IAV token.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const token = await apiGet(`/api/customers/${customerIavId}/iav-token`);
+      setIavToken(token.token);
+    }, 'IAV token generated.');
+  };
+
   const loadFundingSources = async (event) => {
     event.preventDefault();
     if (!fundingSourcesCustomerId) {
@@ -196,6 +321,82 @@ function App() {
       const balance = await apiGet(`/api/funding-sources/${balanceLookupId}/balance`);
       setFundingSourceBalance(balance);
     }, 'Funding source balance loaded.');
+  };
+
+  const createBeneficialOwner = async (event) => {
+    event.preventDefault();
+    if (!beneficialOwnerForm.customerId) {
+      setFeedback({ type: 'error', message: 'Provide a customer ID for the new beneficial owner.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const { customerId, ...payload } = beneficialOwnerForm;
+      const created = await apiPost(`/api/customers/${customerId}/beneficial-owners`, payload);
+      setBeneficialOwnerForm(initialBeneficialOwner);
+      setBeneficialOwnershipForm((current) => ({ ...current, customerId }));
+      setBeneficialOwners((current) => [created, ...current]);
+      return created;
+    }, 'Beneficial owner created.');
+  };
+
+  const listBeneficialOwners = async (event) => {
+    event.preventDefault?.();
+    const customerId = beneficialOwnershipForm.customerId || beneficialOwnerForm.customerId;
+    if (!customerId) {
+      setFeedback({ type: 'error', message: 'Enter a customer ID to load beneficial owners.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const owners = await apiGet(`/api/customers/${customerId}/beneficial-owners?limit=25&offset=0`);
+      setBeneficialOwners(owners);
+      setBeneficialOwnershipForm((current) => ({ ...current, customerId }));
+    }, 'Beneficial owners loaded.');
+  };
+
+  const fetchBeneficialOwnerDetail = async (event) => {
+    event.preventDefault();
+    if (!beneficialOwnerLookupId) {
+      setFeedback({ type: 'error', message: 'Provide a beneficial owner ID.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const owner = await apiGet(`/api/beneficial-owners/${beneficialOwnerLookupId}`);
+      setBeneficialOwnerDetail(owner);
+    }, 'Beneficial owner loaded.');
+  };
+
+  const certifyBeneficialOwnership = async (event) => {
+    event.preventDefault();
+    if (!beneficialOwnershipForm.customerId) {
+      setFeedback({ type: 'error', message: 'Provide a business customer ID to certify ownership.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const certification = await apiPost(
+        `/api/customers/${beneficialOwnershipForm.customerId}/beneficial-ownership/certify`,
+        { status: beneficialOwnershipForm.status },
+      );
+      setBeneficialOwnershipStatus(certification);
+    }, 'Beneficial ownership certification submitted.');
+  };
+
+  const attachBeneficialOwner = async (event) => {
+    event.preventDefault();
+    const { customerId, beneficialOwnerId } = beneficialOwnershipForm;
+    if (!customerId || !beneficialOwnerId) {
+      setFeedback({ type: 'error', message: 'Provide both customer ID and beneficial owner ID to attach.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      await apiPost(`/api/customers/${customerId}/beneficial-owners/${beneficialOwnerId}`);
+      await listBeneficialOwners({ preventDefault: () => {} });
+    }, 'Beneficial owner attached.');
+    setBeneficialOwnershipForm((current) => ({ ...current, beneficialOwnerId: '' }));
   };
 
   const initiateMicroDeposits = async (event) => {
@@ -420,6 +621,150 @@ function App() {
       </section>
 
       <section>
+        <h2>Update Customer Profile</h2>
+        <form className="form-grid" onSubmit={updateCustomer}>
+          <label>
+            Customer ID
+            <input
+              name="id"
+              list="customerOptions"
+              value={customerUpdateForm.id}
+              onChange={handleChange(setCustomerUpdateForm)}
+              required
+            />
+          </label>
+          <label>
+            First Name
+            <input name="firstName" value={customerUpdateForm.firstName} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Last Name
+            <input name="lastName" value={customerUpdateForm.lastName} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" value={customerUpdateForm.email} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Type
+            <select name="type" value={customerUpdateForm.type} onChange={handleChange(setCustomerUpdateForm)}>
+              <option value="">Keep existing</option>
+              <option value="personal">Personal</option>
+              <option value="business">Business</option>
+            </select>
+          </label>
+          <label>
+            Address 1
+            <input name="address1" value={customerUpdateForm.address1} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Address 2
+            <input name="address2" value={customerUpdateForm.address2} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            City
+            <input name="city" value={customerUpdateForm.city} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            State
+            <input name="state" value={customerUpdateForm.state} onChange={handleChange(setCustomerUpdateForm)} maxLength={2} />
+          </label>
+          <label>
+            Postal Code
+            <input name="postalCode" value={customerUpdateForm.postalCode} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Phone
+            <input name="phone" value={customerUpdateForm.phone} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            IP Address
+            <input name="ipAddress" value={customerUpdateForm.ipAddress} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Date of Birth
+            <input type="date" name="dateOfBirth" value={customerUpdateForm.dateOfBirth} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            SSN
+            <input name="ssn" value={customerUpdateForm.ssn} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Business Name
+            <input name="businessName" value={customerUpdateForm.businessName} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            DBA
+            <input name="doingBusinessAs" value={customerUpdateForm.doingBusinessAs} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <label>
+            Website
+            <input name="website" value={customerUpdateForm.website} onChange={handleChange(setCustomerUpdateForm)} />
+          </label>
+          <button type="submit" disabled={busy}>Update Customer</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Customer Status &amp; Instant Verification</h2>
+        <form className="form-grid inline-form" onSubmit={suspendCustomer}>
+          <label>
+            Customer ID
+            <input
+              name="customerActionId"
+              list="customerOptions"
+              value={customerActionId}
+              onChange={(e) => setCustomerActionId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Suspend</button>
+            <button type="button" onClick={deactivateCustomer} disabled={busy}>Deactivate</button>
+            <button type="button" onClick={reactivateCustomer} disabled={busy}>Reactivate</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={upgradeCustomer}>
+          <label>
+            Customer ID
+            <input
+              name="customerUpgradeId"
+              list="customerOptions"
+              value={customerUpgradeId}
+              onChange={(e) => setCustomerUpgradeId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Upgrade to verified</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={fetchIavToken}>
+          <label>
+            Customer ID
+            <input
+              name="customerIavId"
+              list="customerOptions"
+              value={customerIavId}
+              onChange={(e) => setCustomerIavId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Generate IAV token</button>
+          </div>
+        </form>
+        {iavToken && (
+          <div className="transfer-details">
+            <p className="small-note">Use this token to launch Dwolla IAV in your client application:</p>
+            <pre className="code-block">{iavToken}</pre>
+          </div>
+        )}
+      </section>
+
+      <section>
         <h2>Customer Identity Documents</h2>
         <form className="form-grid" onSubmit={uploadCustomerDocument}>
           <label>
@@ -488,6 +833,192 @@ function App() {
           </table>
         ) : (
           <p className="small-note">No documents loaded.</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Beneficial Owners</h2>
+        <form className="form-grid" onSubmit={createBeneficialOwner}>
+          <label>
+            Customer ID
+            <input
+              name="customerId"
+              list="customerOptions"
+              value={beneficialOwnerForm.customerId}
+              onChange={handleChange(setBeneficialOwnerForm)}
+              required
+            />
+          </label>
+          <label>
+            First Name
+            <input name="firstName" value={beneficialOwnerForm.firstName} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            Last Name
+            <input name="lastName" value={beneficialOwnerForm.lastName} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            Date of Birth
+            <input type="date" name="dateOfBirth" value={beneficialOwnerForm.dateOfBirth} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            SSN (last 4 or full)
+            <input name="ssn" value={beneficialOwnerForm.ssn} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            Address 1
+            <input name="address1" value={beneficialOwnerForm.address1} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            Address 2
+            <input name="address2" value={beneficialOwnerForm.address2} onChange={handleChange(setBeneficialOwnerForm)} />
+          </label>
+          <label>
+            City
+            <input name="city" value={beneficialOwnerForm.city} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            State
+            <input name="state" value={beneficialOwnerForm.state} onChange={handleChange(setBeneficialOwnerForm)} required maxLength={2} />
+          </label>
+          <label>
+            Postal Code
+            <input name="postalCode" value={beneficialOwnerForm.postalCode} onChange={handleChange(setBeneficialOwnerForm)} required />
+          </label>
+          <label>
+            Country
+            <input name="country" value={beneficialOwnerForm.country} onChange={handleChange(setBeneficialOwnerForm)} />
+          </label>
+          <label>
+            Passport Number (optional)
+            <input name="passportNumber" value={beneficialOwnerForm.passportNumber} onChange={handleChange(setBeneficialOwnerForm)} />
+          </label>
+          <label>
+            Passport Country
+            <input name="passportCountry" value={beneficialOwnerForm.passportCountry} onChange={handleChange(setBeneficialOwnerForm)} />
+          </label>
+          <button type="submit" disabled={busy}>Add Beneficial Owner</button>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={listBeneficialOwners}>
+          <label>
+            Customer ID
+            <input
+              name="beneficialOwnershipCustomerId"
+              list="customerOptions"
+              value={beneficialOwnershipForm.customerId}
+              onChange={(e) => setBeneficialOwnershipForm((current) => ({ ...current, customerId: e.target.value }))}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Beneficial Owners</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={attachBeneficialOwner}>
+          <label>
+            Customer ID
+            <input
+              name="beneficialOwnershipCustomerId"
+              list="customerOptions"
+              value={beneficialOwnershipForm.customerId}
+              onChange={(e) => setBeneficialOwnershipForm((current) => ({ ...current, customerId: e.target.value }))}
+              required
+            />
+          </label>
+          <label>
+            Beneficial Owner ID
+            <input
+              name="beneficialOwnerId"
+              value={beneficialOwnershipForm.beneficialOwnerId}
+              onChange={(e) => setBeneficialOwnershipForm((current) => ({ ...current, beneficialOwnerId: e.target.value }))}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Attach to Customer</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={certifyBeneficialOwnership}>
+          <label>
+            Business Customer ID
+            <input
+              name="beneficialOwnershipCustomerId"
+              list="customerOptions"
+              value={beneficialOwnershipForm.customerId}
+              onChange={(e) => setBeneficialOwnershipForm((current) => ({ ...current, customerId: e.target.value }))}
+              required
+            />
+          </label>
+          <label>
+            Certification Status
+            <select
+              name="status"
+              value={beneficialOwnershipForm.status}
+              onChange={(e) => setBeneficialOwnershipForm((current) => ({ ...current, status: e.target.value }))}
+            >
+              <option value="certified">Certified</option>
+              <option value="recertified">Recertified</option>
+            </select>
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Certify Beneficial Ownership</button>
+          </div>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={fetchBeneficialOwnerDetail}>
+          <label>
+            Beneficial Owner ID
+            <input
+              name="beneficialOwnerLookupId"
+              value={beneficialOwnerLookupId}
+              onChange={(e) => setBeneficialOwnerLookupId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Fetch Beneficial Owner</button>
+          </div>
+        </form>
+
+        {beneficialOwnershipStatus && (
+          <div className="transfer-details">
+            <p>Beneficial ownership status: {beneficialOwnershipStatus.status}</p>
+          </div>
+        )}
+
+        {beneficialOwnerDetail && (
+          <div className="transfer-details">
+            <p>
+              Beneficial owner {beneficialOwnerDetail.firstName} {beneficialOwnerDetail.lastName} • Status {beneficialOwnerDetail.status}
+            </p>
+            <p className="small-note">Address: {beneficialOwnerDetail.address1 || 'n/a'} {beneficialOwnerDetail.city || ''} {beneficialOwnerDetail.state || ''}</p>
+          </div>
+        )}
+
+        {beneficialOwners.length > 0 ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Owner</th>
+                <th>Status</th>
+                <th>Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {beneficialOwners.map((owner) => (
+                <tr key={owner.id}>
+                  <td>{owner.firstName} {owner.lastName} ({owner.id})</td>
+                  <td>{owner.status}</td>
+                  <td>{owner.address1 || '-'} {owner.city || ''} {owner.state || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small-note">No beneficial owners loaded.</p>
         )}
       </section>
 

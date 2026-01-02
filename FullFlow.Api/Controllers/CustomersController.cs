@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
@@ -27,15 +28,7 @@ namespace DwollaFullFlow.Api.Controllers
             try
             {
                 var response = await _gateway.GetCustomersAsync(limit, offset);
-                var customers = response.Embedded?.Results()?.Select(c => new CustomerSummaryDto
-                {
-                    Id = c.Id,
-                    FirstName = c.FirstName,
-                    LastName = c.LastName,
-                    Email = c.Email,
-                    Status = c.Status,
-                    Created = c.Created
-                }) ?? Enumerable.Empty<CustomerSummaryDto>();
+                var customers = response.Embedded?.Results()?.Select(ToSummary) ?? Enumerable.Empty<CustomerSummaryDto>();
 
                 return Ok(customers);
             }
@@ -51,15 +44,7 @@ namespace DwollaFullFlow.Api.Controllers
             try
             {
                 var customer = await _gateway.GetCustomerAsync(id);
-                return Ok(new CustomerSummaryDto
-                {
-                    Id = customer.Id,
-                    FirstName = customer.FirstName,
-                    LastName = customer.LastName,
-                    Email = customer.Email,
-                    Status = customer.Status,
-                    Created = customer.Created
-                });
+                return Ok(ToSummary(customer));
             }
             catch (DwollaApiException ex)
             {
@@ -101,17 +86,89 @@ namespace DwollaFullFlow.Api.Controllers
                 };
 
                 var customer = await _gateway.CreateCustomerAsync(request);
-                var summary = new CustomerSummaryDto
-                {
-                    Id = customer.Id,
-                    FirstName = customer.FirstName,
-                    LastName = customer.LastName,
-                    Email = customer.Email,
-                    Status = customer.Status,
-                    Created = customer.Created
-                };
+                var summary = ToSummary(customer);
 
                 return CreatedAtAction(nameof(GetCustomerById), new { id = summary.Id }, summary);
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<CustomerSummaryDto>> UpdateCustomer(string id, [FromBody] UpdateCustomerDto model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                var request = new UpdateCustomerRequest
+                {
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    Email = model.Email,
+                    Type = model.Type,
+                    IpAddress = model.IpAddress,
+                    Address1 = model.Address1,
+                    Address2 = model.Address2,
+                    City = model.City,
+                    State = model.State,
+                    PostalCode = model.PostalCode,
+                    Phone = model.Phone,
+                    DateOfBirth = model.DateOfBirth,
+                    Ssn = model.Ssn,
+                    BusinessName = model.BusinessName,
+                    BusinessType = model.BusinessType,
+                    BusinessClassification = model.BusinessClassification,
+                    Ein = model.Ein,
+                    DoingBusinessAs = model.DoingBusinessAs,
+                    Website = model.Website
+                };
+
+                var customer = await _gateway.UpdateCustomerAsync(id, request);
+                return Ok(ToSummary(customer));
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpPost("{id}/suspend")]
+        public async Task<ActionResult<CustomerActionResultDto>> SuspendCustomer(string id)
+        {
+            return await UpdateStatus(id, _gateway.SuspendCustomerAsync);
+        }
+
+        [HttpPost("{id}/deactivate")]
+        public async Task<ActionResult<CustomerActionResultDto>> DeactivateCustomer(string id)
+        {
+            return await UpdateStatus(id, _gateway.DeactivateCustomerAsync);
+        }
+
+        [HttpPost("{id}/reactivate")]
+        public async Task<ActionResult<CustomerActionResultDto>> ReactivateCustomer(string id)
+        {
+            return await UpdateStatus(id, _gateway.ReactivateCustomerAsync);
+        }
+
+        [HttpPost("{id}/upgrade")]
+        public async Task<ActionResult<CustomerActionResultDto>> UpgradeCustomer(string id)
+        {
+            return await UpdateStatus(id, _gateway.UpgradeCustomerAsync);
+        }
+
+        [HttpGet("{id}/iav-token")]
+        public async Task<ActionResult<IavTokenDto>> GetIavToken(string id)
+        {
+            try
+            {
+                var token = await _gateway.GetIavTokenAsync(id);
+                return Ok(new IavTokenDto { Token = token.Token });
             }
             catch (DwollaApiException ex)
             {
@@ -185,6 +242,39 @@ namespace DwollaFullFlow.Api.Controllers
                 };
 
                 return CreatedAtAction(nameof(GetCustomerDocuments), new { id }, summary);
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        private static CustomerSummaryDto ToSummary(Dwolla.Client.Models.Responses.Customer customer)
+        {
+            return new CustomerSummaryDto
+            {
+                Id = customer.Id,
+                FirstName = customer.FirstName,
+                LastName = customer.LastName,
+                Email = customer.Email,
+                Status = customer.Status,
+                Created = customer.Created
+            };
+        }
+
+        private async Task<ActionResult<CustomerActionResultDto>> UpdateStatus(string id, Func<string, Task<Dwolla.Client.Models.Responses.Customer>> action)
+        {
+            try
+            {
+                var customer = await action(id);
+                return Ok(new CustomerActionResultDto
+                {
+                    Id = customer.Id,
+                    Status = customer.Status,
+                    Email = customer.Email,
+                    FirstName = customer.FirstName,
+                    LastName = customer.LastName
+                });
             }
             catch (DwollaApiException ex)
             {

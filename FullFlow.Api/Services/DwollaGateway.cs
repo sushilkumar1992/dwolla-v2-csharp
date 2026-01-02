@@ -17,6 +17,12 @@ namespace DwollaFullFlow.Api.Services
         Task<Customer> CreateCustomerAsync(CreateCustomerRequest request);
         Task<GetCustomersResponse> GetCustomersAsync(int limit, int offset);
         Task<Customer> GetCustomerAsync(string customerId);
+        Task<Customer> UpdateCustomerAsync(string customerId, UpdateCustomerRequest request);
+        Task<Customer> SuspendCustomerAsync(string customerId);
+        Task<Customer> DeactivateCustomerAsync(string customerId);
+        Task<Customer> ReactivateCustomerAsync(string customerId);
+        Task<Customer> UpgradeCustomerAsync(string customerId);
+        Task<IavTokenResponse> GetIavTokenAsync(string customerId);
         Task<Uri> CreateFundingSourceAsync(string customerId, CreateFundingSourceRequest request);
         Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset);
         Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri);
@@ -36,6 +42,11 @@ namespace DwollaFullFlow.Api.Services
         Task<Uri> CreateWebhookSubscriptionAsync(CreateWebhookSubscriptionRequest request);
         Task DeleteWebhookSubscriptionAsync(string subscriptionId);
         Task<WebhookSubscription> GetWebhookSubscriptionAsync(Uri subscriptionUri);
+        Task<BeneficialOwnerResponse> CreateBeneficialOwnerAsync(string customerId, CreateBeneficialOwnerRequest request);
+        Task<GetBeneficialOwnersResponse> GetBeneficialOwnersAsync(string customerId, int limit, int offset);
+        Task<BeneficialOwnerResponse> GetBeneficialOwnerAsync(string beneficialOwnerId);
+        Task<BeneficialOwnershipResponse> CertifyBeneficialOwnershipAsync(string customerId, CertifyBeneficialOwnershipRequest request);
+        Task AttachBeneficialOwnerAsync(string customerId, string beneficialOwnerId);
     }
 
     public class DwollaGateway : IDwollaGateway
@@ -111,6 +122,36 @@ namespace DwollaFullFlow.Api.Services
         {
             var headers = await BuildHeadersAsync();
             return await GetCustomerByUriAsync(new Uri($"{_client.ApiBaseAddress}/customers/{customerId}"), headers);
+        }
+
+        public async Task<Customer> UpdateCustomerAsync(string customerId, UpdateCustomerRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<UpdateCustomerRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/customers/{customerId}"), request, headers);
+
+            EnsureSuccess(response);
+            return await GetCustomerByUriAsync(new Uri($"{_client.ApiBaseAddress}/customers/{customerId}"), headers);
+        }
+
+        public Task<Customer> SuspendCustomerAsync(string customerId) => PerformCustomerActionAsync(customerId, "suspend");
+
+        public Task<Customer> DeactivateCustomerAsync(string customerId) => PerformCustomerActionAsync(customerId, "deactivate");
+
+        public Task<Customer> ReactivateCustomerAsync(string customerId) => PerformCustomerActionAsync(customerId, "reactivate");
+
+        public Task<Customer> UpgradeCustomerAsync(string customerId) => PerformCustomerActionAsync(customerId, "upgrade");
+
+        public async Task<IavTokenResponse> GetIavTokenAsync(string customerId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<object, IavTokenResponse>(
+                new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/iav-token"),
+                new { },
+                headers);
+
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         public async Task<Uri> CreateFundingSourceAsync(string customerId, CreateFundingSourceRequest request)
@@ -349,6 +390,78 @@ namespace DwollaFullFlow.Api.Services
             var response = await _client.GetAsync<WebhookSubscription>(subscriptionUri, headers);
             EnsureSuccess(response);
             return response.Content;
+        }
+
+        public async Task<BeneficialOwnerResponse> CreateBeneficialOwnerAsync(string customerId, CreateBeneficialOwnerRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<CreateBeneficialOwnerRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/beneficial-owners"),
+                request,
+                headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the beneficial owner.");
+            }
+
+            var ownerResponse = await _client.GetAsync<BeneficialOwnerResponse>(location, headers);
+            EnsureSuccess(ownerResponse);
+            return ownerResponse.Content;
+        }
+
+        public async Task<GetBeneficialOwnersResponse> GetBeneficialOwnersAsync(string customerId, int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/beneficial-owners?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetBeneficialOwnersResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<BeneficialOwnerResponse> GetBeneficialOwnerAsync(string beneficialOwnerId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.GetAsync<BeneficialOwnerResponse>(
+                new Uri($"{_client.ApiBaseAddress}/beneficial-owners/{beneficialOwnerId}"),
+                headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<BeneficialOwnershipResponse> CertifyBeneficialOwnershipAsync(string customerId, CertifyBeneficialOwnershipRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<CertifyBeneficialOwnershipRequest, BeneficialOwnershipResponse>(
+                new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/beneficial-ownership"),
+                request,
+                headers);
+
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task AttachBeneficialOwnerAsync(string customerId, string beneficialOwnerId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<object, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/beneficial-owners/{beneficialOwnerId}"),
+                new { },
+                headers);
+
+            EnsureSuccess(response);
+        }
+
+        private async Task<Customer> PerformCustomerActionAsync(string customerId, string action)
+        {
+            var headers = await BuildHeadersAsync();
+            var actionUri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/{action}");
+            var response = await _client.PostAsync<object, EmptyResponse>(actionUri, new { }, headers);
+            EnsureSuccess(response);
+
+            return await GetCustomerByUriAsync(new Uri($"{_client.ApiBaseAddress}/customers/{customerId}"), headers);
         }
 
         private async Task<Headers> BuildHeadersAsync()

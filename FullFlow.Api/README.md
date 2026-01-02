@@ -28,8 +28,20 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/auth/token` – obtain an application access token
 - `POST /api/customers` – create a personal or business customer
 - `GET /api/customers` – list customers (paged)
+- `GET /api/customers/{customerId}` – fetch a single customer
+- `PUT /api/customers/{customerId}` – update core customer profile details
+- `POST /api/customers/{customerId}/suspend` – suspend a customer
+- `POST /api/customers/{customerId}/deactivate` – deactivate a customer
+- `POST /api/customers/{customerId}/reactivate` – reactivate a suspended/deactivated customer
+- `POST /api/customers/{customerId}/upgrade` – request a receive-only customer upgrade
+- `GET /api/customers/{customerId}/iav-token` – create an Instant Account Verification token for bank linking
 - `GET /api/customers/{customerId}/documents` – list verification documents for a customer (paged)
 - `POST /api/customers/{customerId}/documents` – upload a verification document for review
+- `POST /api/customers/{customerId}/beneficial-owners` – create and attach a beneficial owner to a business customer
+- `GET /api/customers/{customerId}/beneficial-owners` – list beneficial owners for a customer (paged)
+- `POST /api/customers/{customerId}/beneficial-ownership/certify` – certify beneficial ownership status for a business
+- `POST /api/customers/{customerId}/beneficial-owners/{beneficialOwnerId}` – attach an existing beneficial owner to a customer
+- `GET /api/beneficial-owners/{beneficialOwnerId}` – retrieve a specific beneficial owner
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
 - `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
 - `GET /api/funding-sources/{fundingSourceId}/balance` – fetch the current balance for a funding source

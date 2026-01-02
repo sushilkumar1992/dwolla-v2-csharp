@@ -19,7 +19,8 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
 
 ## Features
 
-- Create personal or business customers
+- Create personal or business customers and update existing profiles
+- Suspend, deactivate, reactivate, or upgrade customers plus generate IAV tokens for instant bank linking
 - Link bank funding sources and view the list of sources for a given customer
 - Check individual funding source balances
 - Trigger Dwolla micro-deposits and submit verification amounts for a funding source
@@ -30,6 +31,7 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
 - Query Dwolla events directly (filterable by resource and topic) alongside local webhook logs
 - Create, list, and delete webhook subscriptions to pair with the webhook receiver
 - View validated webhook events posted to the backend webhook receiver
+- Create, list, attach, and certify business beneficial owners with detail lookups
 
 ## Build
 
