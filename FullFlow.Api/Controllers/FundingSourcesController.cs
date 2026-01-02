@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using Dwolla.Client.Models.Requests;
 using DwollaFullFlow.Api.Models;
 using DwollaFullFlow.Api.Services;
@@ -65,6 +68,32 @@ namespace DwollaFullFlow.Api.Controllers
                     Status = fundingSource.Status,
                     Created = fundingSource.Created
                 });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
+        [HttpGet("customers/{customerId}")]
+        public async Task<ActionResult<IEnumerable<FundingSourceSummaryDto>>> GetFundingSourcesForCustomer(
+            string customerId,
+            [FromQuery, Range(1, 200)] int limit = 10,
+            [FromQuery, Range(0, int.MaxValue)] int offset = 0)
+        {
+            try
+            {
+                var response = await _gateway.GetFundingSourcesForCustomerAsync(customerId, limit, offset);
+                var list = response.Embedded?.Results()?.Select(fs => new FundingSourceSummaryDto
+                {
+                    Id = fs.Id,
+                    Name = fs.Name,
+                    BankAccountType = fs.BankAccountType,
+                    Status = fs.Status,
+                    Created = fs.Created
+                }) ?? Enumerable.Empty<FundingSourceSummaryDto>();
+
+                return Ok(list);
             }
             catch (DwollaApiException ex)
             {

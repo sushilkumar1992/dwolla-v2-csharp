@@ -17,6 +17,12 @@ React (Vite) single-page experience for driving the Dwolla end-to-end API. It pa
    npm run dev
    ```
 
+## Features
+
+- Create personal or business customers
+- Link bank funding sources and view the list of sources for a given customer
+- Initiate transfers between any two funding sources
+
 ## Build
 
 Use `npm run build` to generate a production bundle in `dist/`.

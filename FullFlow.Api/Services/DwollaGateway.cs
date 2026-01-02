@@ -16,6 +16,7 @@ namespace DwollaFullFlow.Api.Services
         Task<GetCustomersResponse> GetCustomersAsync(int limit, int offset);
         Task<Customer> GetCustomerAsync(string customerId);
         Task<Uri> CreateFundingSourceAsync(string customerId, CreateFundingSourceRequest request);
+        Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset);
         Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri);
         Task<FundingSource> GetFundingSourceAsync(string fundingSourceId);
         Task<Uri> CreateTransferAsync(CreateTransferRequest request);
@@ -110,6 +111,15 @@ namespace DwollaFullFlow.Api.Services
             }
 
             return location;
+        }
+
+        public async Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/customers/{customerId}/funding-sources?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetFundingSourcesResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         public async Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri)

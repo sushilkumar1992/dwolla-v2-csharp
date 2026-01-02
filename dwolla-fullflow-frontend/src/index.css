@@ -42,6 +42,15 @@ section {
   gap: 12px;
 }
 
+.inline-form .form-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+.inline-form button {
+  margin-top: auto;
+}
+
 label {
   display: flex;
   flex-direction: column;

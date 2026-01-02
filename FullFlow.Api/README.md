@@ -9,6 +9,7 @@ Set environment variables or configuration values for the Dwolla credentials bef
 - `Dwolla__Key` – Dwolla application key
 - `Dwolla__Secret` – Dwolla application secret
 - `Dwolla__IsSandbox` – `true` for sandbox (default), `false` for production
+- `Cors__AllowedOrigins` – optional list of origins allowed to call the API (defaults to Vite dev server URLs)
 
 For local development you can also edit `appsettings.json` or provide a user secrets store. Keep secrets out of source control.
 
@@ -27,4 +28,5 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/customers` – create a personal or business customer
 - `GET /api/customers` – list customers (paged)
 - `POST /api/funding-sources/customers/{customerId}` – add a bank account for a customer
+- `GET /api/funding-sources/customers/{customerId}` – list funding sources for a customer
 - `POST /api/transfers` – initiate a transfer between two funding sources

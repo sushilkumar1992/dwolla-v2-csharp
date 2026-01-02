@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using Dwolla.Client.Models.Requests;
 using DwollaFullFlow.Api.Models;
 using DwollaFullFlow.Api.Services;
@@ -16,7 +19,9 @@ namespace DwollaFullFlow.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CustomerSummaryDto>>> GetCustomers([FromQuery] int limit = 10, [FromQuery] int offset = 0)
+        public async Task<ActionResult<IEnumerable<CustomerSummaryDto>>> GetCustomers(
+            [FromQuery, Range(1, 200)] int limit = 10,
+            [FromQuery, Range(0, int.MaxValue)] int offset = 0)
         {
             try
             {

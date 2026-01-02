@@ -47,6 +47,8 @@ function App() {
   const [customers, setCustomers] = useState([]);
   const [latestFundingSource, setLatestFundingSource] = useState(null);
   const [latestTransfer, setLatestTransfer] = useState(null);
+  const [fundingSources, setFundingSources] = useState([]);
+  const [fundingSourcesCustomerId, setFundingSourcesCustomerId] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -111,6 +113,19 @@ function App() {
       const list = await apiGet('/api/customers?limit=25&offset=0');
       setCustomers(list);
     }, 'Customers loaded.');
+  };
+
+  const loadFundingSources = async (event) => {
+    event.preventDefault();
+    if (!fundingSourcesCustomerId) {
+      setFeedback({ type: 'error', message: 'Enter a customer ID to load funding sources.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const list = await apiGet(`/api/funding-sources/customers/${fundingSourcesCustomerId}?limit=25&offset=0`);
+      setFundingSources(list);
+    }, 'Funding sources loaded.');
   };
 
   return (
@@ -206,6 +221,48 @@ function App() {
           <div className="alert success">
             Funding source {latestFundingSource.name} ({latestFundingSource.id}) created with status {latestFundingSource.status}.
           </div>
+        )}
+      </section>
+
+      <section>
+        <h2>Customer Funding Sources</h2>
+        <form className="form-grid inline-form" onSubmit={loadFundingSources}>
+          <label>
+            Customer ID
+            <input
+              name="fundingSourcesCustomerId"
+              value={fundingSourcesCustomerId}
+              onChange={(e) => setFundingSourcesCustomerId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Funding Sources</button>
+          </div>
+        </form>
+        {fundingSources.length > 0 ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Funding Source</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fundingSources.map((fs) => (
+                <tr key={fs.id}>
+                  <td>{fs.name} ({fs.id})</td>
+                  <td>{fs.bankAccountType}</td>
+                  <td>{fs.status}</td>
+                  <td>{new Date(fs.created).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small-note">No funding sources loaded yet.</p>
         )}
       </section>
 

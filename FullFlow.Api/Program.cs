@@ -7,6 +7,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<DwollaOptions>(builder.Configuration.GetSection("Dwolla"));
 builder.Services.AddMemoryCache();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy
+            .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
+                         new[] { "http://localhost:5173", "http://localhost:4173" })
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 builder.Services.AddSingleton<IDwollaClient>(sp =>
 {
     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<DwollaOptions>>().Value;
@@ -24,6 +33,8 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseAuthorization();
 
