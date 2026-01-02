@@ -39,9 +39,13 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/webhooks` – Dwolla webhook receiver that validates request signatures and records events
 - `GET /api/webhooks/events` – list recently received webhook events (optionally filtered by `resourceId`)
 - `DELETE /api/webhooks/events` – clear the in-memory webhook event log
+- `GET /api/webhooks/subscriptions` – list webhook subscriptions configured for the application
+- `POST /api/webhooks/subscriptions` – create a webhook subscription for the provided URL and secret
+- `DELETE /api/webhooks/subscriptions/{subscriptionId}` – delete a webhook subscription by ID
 
 ### Webhooks
 
 Provide `Dwolla__WebhookSecret` from your Dwolla application settings and configure Dwolla to send webhooks to
 `/api/webhooks`. The API validates the Dwolla signature header, logs accepted payloads in memory, and exposes the
-recent event log through `GET /api/webhooks/events` for quick inspection while developing locally.
+recent event log through `GET /api/webhooks/events` for quick inspection while developing locally. Use the webhook
+subscription endpoints to manage callback URLs and secrets directly from this API when automating setup.

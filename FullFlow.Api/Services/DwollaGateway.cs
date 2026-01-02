@@ -26,6 +26,10 @@ namespace DwollaFullFlow.Api.Services
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
         Task<TransferResponse> CancelTransferAsync(string transferId);
+        Task<GetWebhookSubscriptionsResponse> GetWebhookSubscriptionsAsync(int limit, int offset);
+        Task<Uri> CreateWebhookSubscriptionAsync(CreateWebhookSubscriptionRequest request);
+        Task DeleteWebhookSubscriptionAsync(string subscriptionId);
+        Task<WebhookSubscription> GetWebhookSubscriptionAsync(Uri subscriptionUri);
     }
 
     public class DwollaGateway : IDwollaGateway
@@ -226,6 +230,48 @@ namespace DwollaFullFlow.Api.Services
             var transferResponse = await _client.GetAsync<TransferResponse>(transferUri, headers);
             EnsureSuccess(transferResponse);
             return transferResponse.Content;
+        }
+
+        public async Task<GetWebhookSubscriptionsResponse> GetWebhookSubscriptionsAsync(int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/webhook-subscriptions?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetWebhookSubscriptionsResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<Uri> CreateWebhookSubscriptionAsync(CreateWebhookSubscriptionRequest request)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.PostAsync<CreateWebhookSubscriptionRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/webhook-subscriptions"),
+                request,
+                headers);
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the webhook subscription.");
+            }
+
+            return location;
+        }
+
+        public async Task DeleteWebhookSubscriptionAsync(string subscriptionId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/webhook-subscriptions/{subscriptionId}");
+            var response = await _client.DeleteAsync(uri, new { }, headers);
+            EnsureSuccess(response);
+        }
+
+        public async Task<WebhookSubscription> GetWebhookSubscriptionAsync(Uri subscriptionUri)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.GetAsync<WebhookSubscription>(subscriptionUri, headers);
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         private async Task<Headers> BuildHeadersAsync()

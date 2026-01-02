@@ -38,6 +38,11 @@ const initialTransfer = {
   correlationId: '',
 };
 
+const initialWebhookSubscription = {
+  url: '',
+  secret: '',
+};
+
 function Feedback({ feedback }) {
   if (!feedback?.message) return null;
   return (
@@ -65,6 +70,8 @@ function App() {
   const [cancelTransferId, setCancelTransferId] = useState('');
   const [webhookEvents, setWebhookEvents] = useState([]);
   const [webhookResourceFilter, setWebhookResourceFilter] = useState('');
+  const [webhookSubscriptions, setWebhookSubscriptions] = useState([]);
+  const [webhookSubscriptionForm, setWebhookSubscriptionForm] = useState(initialWebhookSubscription);
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -235,6 +242,29 @@ function App() {
       await apiDelete('/api/webhooks/events');
       setWebhookEvents([]);
     }, 'Webhook log cleared.');
+  };
+
+  const loadWebhookSubscriptions = async () => {
+    await withFeedback(async () => {
+      const subscriptions = await apiGet('/api/webhooks/subscriptions?limit=50&offset=0');
+      setWebhookSubscriptions(subscriptions);
+    }, 'Webhook subscriptions loaded.');
+  };
+
+  const createWebhookSubscription = async (event) => {
+    event.preventDefault();
+    await withFeedback(async () => {
+      const created = await apiPost('/api/webhooks/subscriptions', webhookSubscriptionForm);
+      setWebhookSubscriptions((current) => [created, ...current]);
+      setWebhookSubscriptionForm(initialWebhookSubscription);
+    }, 'Webhook subscription created.');
+  };
+
+  const deleteWebhookSubscription = async (id) => {
+    await withFeedback(async () => {
+      await apiDelete(`/api/webhooks/subscriptions/${id}`);
+      setWebhookSubscriptions((current) => current.filter((sub) => sub.id !== id));
+    }, 'Webhook subscription deleted.');
   };
 
   const markTransferFundingSource = (fundingSourceId, slot) => {
@@ -611,6 +641,70 @@ function App() {
         </form>
         {transferDetails && (
           <p className="small-note">Most recent transfer lookup/cancel result: {transferDetails.status}</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Webhook Subscriptions</h2>
+        <p className="small-note">
+          Manage Dwolla webhook subscriptions directly from this environment. Use the same callback URL and secret you
+          configured for the receiver below.
+        </p>
+        <form className="form-grid" onSubmit={createWebhookSubscription}>
+          <label>
+            Callback URL
+            <input
+              type="url"
+              name="url"
+              value={webhookSubscriptionForm.url}
+              onChange={handleChange(setWebhookSubscriptionForm)}
+              required
+            />
+          </label>
+          <label>
+            Shared Secret
+            <input
+              name="secret"
+              value={webhookSubscriptionForm.secret}
+              onChange={handleChange(setWebhookSubscriptionForm)}
+              minLength={8}
+              required
+            />
+          </label>
+          <button type="submit" disabled={busy}>Create Subscription</button>
+        </form>
+        <div className="form-actions">
+          <button type="button" onClick={loadWebhookSubscriptions} disabled={busy}>Load Subscriptions</button>
+        </div>
+        {webhookSubscriptions.length > 0 ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Callback</th>
+                <th>Paused</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {webhookSubscriptions.map((sub) => (
+                <tr key={sub.id}>
+                  <td>{sub.id}</td>
+                  <td>{sub.url}</td>
+                  <td>{sub.paused ? 'Yes' : 'No'}</td>
+                  <td>{new Date(sub.created).toLocaleString()}</td>
+                  <td>
+                    <button type="button" onClick={() => deleteWebhookSubscription(sub.id)} disabled={busy}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small-note">No webhook subscriptions loaded yet.</p>
         )}
       </section>
 
