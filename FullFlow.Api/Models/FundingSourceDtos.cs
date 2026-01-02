@@ -49,4 +49,12 @@ namespace DwollaFullFlow.Api.Models
         public string Status { get; set; } = string.Empty;
         public string? FailureReason { get; set; }
     }
+
+    public class FundingSourceBalanceDto
+    {
+        public decimal Balance { get; set; }
+        public string Currency { get; set; } = string.Empty;
+        public DateTime? LastUpdated { get; set; }
+        public string? Status { get; set; }
+    }
 }

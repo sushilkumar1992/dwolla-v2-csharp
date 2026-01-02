@@ -42,6 +42,31 @@ namespace DwollaFullFlow.Api.Controllers
             }
         }
 
+        [HttpPost("{transferId}/cancel")]
+        public async Task<ActionResult<TransferDetailsDto>> CancelTransfer(string transferId)
+        {
+            try
+            {
+                var transfer = await _gateway.CancelTransferAsync(transferId);
+
+                return Ok(new TransferDetailsDto
+                {
+                    Id = transfer.Id,
+                    Status = transfer.Status,
+                    Amount = transfer.Amount.Value,
+                    Currency = transfer.Amount.Currency,
+                    Created = transfer.Created,
+                    CorrelationId = transfer.CorrelationId,
+                    SourceFundingSourceId = ExtractIdFromHref(transfer.Links?.GetValueOrDefault("source")?.Href),
+                    DestinationFundingSourceId = ExtractIdFromHref(transfer.Links?.GetValueOrDefault("destination")?.Href)
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
         [HttpPost]
         public async Task<ActionResult<TransferSummaryDto>> CreateTransfer([FromBody] CreateTransferDto model)
         {

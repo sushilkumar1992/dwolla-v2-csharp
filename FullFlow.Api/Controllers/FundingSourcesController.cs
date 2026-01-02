@@ -75,6 +75,26 @@ namespace DwollaFullFlow.Api.Controllers
             }
         }
 
+        [HttpGet("{fundingSourceId}/balance")]
+        public async Task<ActionResult<FundingSourceBalanceDto>> GetFundingSourceBalance(string fundingSourceId)
+        {
+            try
+            {
+                var balance = await _gateway.GetFundingSourceBalanceAsync(fundingSourceId);
+                return Ok(new FundingSourceBalanceDto
+                {
+                    Balance = balance.Balance?.Value ?? 0,
+                    Currency = balance.Balance?.Currency ?? "USD",
+                    LastUpdated = balance.LastUpdated,
+                    Status = balance.Status
+                });
+            }
+            catch (DwollaApiException ex)
+            {
+                return ProblemFromDwolla(ex);
+            }
+        }
+
         [HttpGet("customers/{customerId}")]
         public async Task<ActionResult<IEnumerable<FundingSourceSummaryDto>>> GetFundingSourcesForCustomer(
             string customerId,

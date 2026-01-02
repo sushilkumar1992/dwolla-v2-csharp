@@ -58,8 +58,11 @@ function App() {
   const [microDepositForm, setMicroDepositForm] = useState(initialMicroDeposit);
   const [microDepositStatus, setMicroDepositStatus] = useState(null);
   const [fundingSourcesCustomerId, setFundingSourcesCustomerId] = useState('');
+  const [balanceLookupId, setBalanceLookupId] = useState('');
+  const [fundingSourceBalance, setFundingSourceBalance] = useState(null);
   const [transferLookupId, setTransferLookupId] = useState('');
   const [transferDetails, setTransferDetails] = useState(null);
+  const [cancelTransferId, setCancelTransferId] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -140,6 +143,19 @@ function App() {
     }, 'Funding sources loaded.');
   };
 
+  const checkFundingSourceBalance = async (event) => {
+    event.preventDefault();
+    if (!balanceLookupId) {
+      setFeedback({ type: 'error', message: 'Enter a funding source ID to check balance.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const balance = await apiGet(`/api/funding-sources/${balanceLookupId}/balance`);
+      setFundingSourceBalance(balance);
+    }, 'Funding source balance loaded.');
+  };
+
   const initiateMicroDeposits = async (event) => {
     event.preventDefault();
     if (!microDepositForm.fundingSourceId) {
@@ -187,6 +203,20 @@ function App() {
       const details = await apiGet(`/api/transfers/${transferLookupId}`);
       setTransferDetails(details);
     }, 'Transfer status loaded.');
+  };
+
+  const cancelTransfer = async (event) => {
+    event.preventDefault();
+    if (!cancelTransferId) {
+      setFeedback({ type: 'error', message: 'Enter a transfer ID to cancel.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const details = await apiPost(`/api/transfers/${cancelTransferId}/cancel`, {});
+      setTransferDetails(details);
+      setCancelTransferId('');
+    }, 'Transfer cancellation requested.');
   };
 
   const markTransferFundingSource = (fundingSourceId, slot) => {
@@ -348,6 +378,9 @@ function App() {
                       <button type="button" onClick={() => setMicroDepositForm((prev) => ({ ...prev, fundingSourceId: fs.id }))}>
                         Verify via micro-deposits
                       </button>
+                      <button type="button" onClick={() => setBalanceLookupId(fs.id)}>
+                        Check balance
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -356,6 +389,36 @@ function App() {
           </table>
         ) : (
           <p className="small-note">No funding sources loaded yet.</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Funding Source Balance</h2>
+        <form className="form-grid inline-form" onSubmit={checkFundingSourceBalance}>
+          <label>
+            Funding Source ID
+            <input
+              name="balanceLookupId"
+              list="fundingSourceOptions"
+              value={balanceLookupId}
+              onChange={(e) => setBalanceLookupId(e.target.value)}
+              required
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Get balance</button>
+          </div>
+        </form>
+        {fundingSourceBalance && (
+          <div className="transfer-details">
+            <p>
+              Balance: <strong>{fundingSourceBalance.balance}</strong> {fundingSourceBalance.currency || 'USD'}
+            </p>
+            <p className="small-note">
+              Status: {fundingSourceBalance.status || 'unknown'} • Last updated:{' '}
+              {fundingSourceBalance.lastUpdated ? new Date(fundingSourceBalance.lastUpdated).toLocaleString() : 'n/a'}
+            </p>
+          </div>
         )}
       </section>
 
@@ -514,6 +577,22 @@ function App() {
               Source: {transferDetails.sourceFundingSourceId || 'unknown'} • Destination: {transferDetails.destinationFundingSourceId || 'unknown'}
             </p>
           </div>
+        )}
+      </section>
+
+      <section>
+        <h2>Cancel Transfer</h2>
+        <form className="form-grid inline-form" onSubmit={cancelTransfer}>
+          <label>
+            Transfer ID
+            <input value={cancelTransferId} onChange={(e) => setCancelTransferId(e.target.value)} required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Cancel Transfer</button>
+          </div>
+        </form>
+        {transferDetails && (
+          <p className="small-note">Most recent transfer lookup/cancel result: {transferDetails.status}</p>
         )}
       </section>
 

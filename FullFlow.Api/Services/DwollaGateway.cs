@@ -19,11 +19,13 @@ namespace DwollaFullFlow.Api.Services
         Task<GetFundingSourcesResponse> GetFundingSourcesForCustomerAsync(string customerId, int limit, int offset);
         Task<FundingSource> GetFundingSourceAsync(Uri fundingSourceUri);
         Task<FundingSource> GetFundingSourceAsync(string fundingSourceId);
+        Task<BalanceResponse> GetFundingSourceBalanceAsync(string fundingSourceId);
         Task<MicroDepositsResponse> InitiateMicroDepositsAsync(string fundingSourceId);
         Task<MicroDepositsResponse> VerifyMicroDepositsAsync(string fundingSourceId, decimal amount1, decimal amount2, string currency = "USD");
         Task<Uri> CreateTransferAsync(CreateTransferRequest request);
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
+        Task<TransferResponse> CancelTransferAsync(string transferId);
     }
 
     public class DwollaGateway : IDwollaGateway
@@ -154,6 +156,15 @@ namespace DwollaFullFlow.Api.Services
             return response.Content;
         }
 
+        public async Task<BalanceResponse> GetFundingSourceBalanceAsync(string fundingSourceId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/funding-sources/{fundingSourceId}/balance");
+            var response = await _client.GetAsync<BalanceResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
         public async Task<MicroDepositsResponse> VerifyMicroDepositsAsync(string fundingSourceId, decimal amount1, decimal amount2, string currency = "USD")
         {
             var headers = await BuildHeadersAsync();
@@ -202,6 +213,19 @@ namespace DwollaFullFlow.Api.Services
             var response = await _client.GetAsync<TransferResponse>(uri, headers);
             EnsureSuccess(response);
             return response.Content;
+        }
+
+        public async Task<TransferResponse> CancelTransferAsync(string transferId)
+        {
+            var headers = await BuildHeadersAsync();
+            var cancelUri = new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}/cancel");
+            var cancelResponse = await _client.PostAsync<object, EmptyResponse>(cancelUri, new { }, headers);
+            EnsureSuccess(cancelResponse);
+
+            var transferUri = new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}");
+            var transferResponse = await _client.GetAsync<TransferResponse>(transferUri, headers);
+            EnsureSuccess(transferResponse);
+            return transferResponse.Content;
         }
 
         private async Task<Headers> BuildHeadersAsync()
