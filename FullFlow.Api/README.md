@@ -38,6 +38,8 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/transfers` – initiate a transfer between two funding sources
 - `GET /api/transfers/{transferId}` – fetch transfer details and status by ID
 - `POST /api/transfers/{transferId}/cancel` – cancel a transfer that is still cancelable
+- `GET /api/events` – list Dwolla events with optional resource/topic filters
+- `GET /api/events/{eventId}` – retrieve a single Dwolla event by ID
 - `POST /api/webhooks` – Dwolla webhook receiver that validates request signatures and records events
 - `GET /api/webhooks/events` – list recently received webhook events (optionally filtered by `resourceId`)
 - `DELETE /api/webhooks/events` – clear the in-memory webhook event log

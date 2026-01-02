@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using Dwolla.Client;
 using Dwolla.Client.Models;
 using Dwolla.Client.Models.Requests;
@@ -27,6 +28,8 @@ namespace DwollaFullFlow.Api.Services
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
         Task<TransferResponse> CancelTransferAsync(string transferId);
+        Task<GetEventsResponse> GetEventsAsync(int limit, int offset, string? resourceId = null, string? topic = null);
+        Task<EventResponse> GetEventAsync(string eventId);
         Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset);
         Task<DocumentResponse> UploadCustomerDocumentAsync(string customerId, string documentType, Stream fileStream, string filename, string contentType);
         Task<GetWebhookSubscriptionsResponse> GetWebhookSubscriptionsAsync(int limit, int offset);
@@ -233,6 +236,34 @@ namespace DwollaFullFlow.Api.Services
             var transferResponse = await _client.GetAsync<TransferResponse>(transferUri, headers);
             EnsureSuccess(transferResponse);
             return transferResponse.Content;
+        }
+
+        public async Task<GetEventsResponse> GetEventsAsync(int limit, int offset, string? resourceId = null, string? topic = null)
+        {
+            var headers = await BuildHeadersAsync();
+            var query = new StringBuilder($"{_client.ApiBaseAddress}/events?limit={limit}&offset={offset}");
+            if (!string.IsNullOrWhiteSpace(resourceId))
+            {
+                query.Append($"&resourceId={Uri.EscapeDataString(resourceId)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(topic))
+            {
+                query.Append($"&topic={Uri.EscapeDataString(topic)}");
+            }
+
+            var response = await _client.GetAsync<GetEventsResponse>(new Uri(query.ToString()), headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<EventResponse> GetEventAsync(string eventId)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/events/{eventId}");
+            var response = await _client.GetAsync<EventResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         public async Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset)

@@ -74,6 +74,10 @@ function App() {
   const [transferLookupId, setTransferLookupId] = useState('');
   const [transferDetails, setTransferDetails] = useState(null);
   const [cancelTransferId, setCancelTransferId] = useState('');
+  const [dwollaEvents, setDwollaEvents] = useState([]);
+  const [eventFilters, setEventFilters] = useState({ resourceId: '', topic: '' });
+  const [eventLookupId, setEventLookupId] = useState('');
+  const [eventDetail, setEventDetail] = useState(null);
   const [webhookEvents, setWebhookEvents] = useState([]);
   const [webhookResourceFilter, setWebhookResourceFilter] = useState('');
   const [webhookSubscriptions, setWebhookSubscriptions] = useState([]);
@@ -323,6 +327,35 @@ function App() {
   const markTransferFundingSource = (fundingSourceId, slot) => {
     setTransferForm((prev) => ({ ...prev, [slot]: fundingSourceId }));
     setFeedback(null);
+  };
+
+  const loadDwollaEvents = async (event) => {
+    event.preventDefault();
+    const params = new URLSearchParams({ limit: 25, offset: 0 });
+    if (eventFilters.resourceId) {
+      params.append('resourceId', eventFilters.resourceId);
+    }
+    if (eventFilters.topic) {
+      params.append('topic', eventFilters.topic);
+    }
+
+    await withFeedback(async () => {
+      const events = await apiGet(`/api/events?${params.toString()}`);
+      setDwollaEvents(events);
+    }, 'Dwolla events loaded.');
+  };
+
+  const lookupEvent = async (event) => {
+    event.preventDefault();
+    if (!eventLookupId) {
+      setFeedback({ type: 'error', message: 'Enter an event ID to fetch details.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const detail = await apiGet(`/api/events/${eventLookupId}`);
+      setEventDetail(detail);
+    }, 'Dwolla event loaded.');
   };
 
   return (
@@ -766,6 +799,81 @@ function App() {
         </form>
         {transferDetails && (
           <p className="small-note">Most recent transfer lookup/cancel result: {transferDetails.status}</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Dwolla Events (API)</h2>
+        <p className="small-note">
+          Query events directly from Dwolla for reconciliation. Use resource/topic filters to narrow to specific
+          transfers or customers.
+        </p>
+        <form className="form-grid inline-form" onSubmit={loadDwollaEvents}>
+          <label>
+            Resource ID
+            <input
+              name="resourceId"
+              value={eventFilters.resourceId}
+              onChange={handleChange(setEventFilters)}
+              placeholder="optional"
+            />
+          </label>
+          <label>
+            Topic
+            <input
+              name="topic"
+              value={eventFilters.topic}
+              onChange={handleChange(setEventFilters)}
+              placeholder="e.g. customer_verified"
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Events</button>
+          </div>
+        </form>
+
+        {dwollaEvents.length > 0 ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Topic</th>
+                <th>Resource</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dwollaEvents.map((evt) => (
+                <tr key={evt.id}>
+                  <td>{evt.id}</td>
+                  <td>{evt.topic}</td>
+                  <td>{evt.resourceId}</td>
+                  <td>{new Date(evt.created).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small-note">No Dwolla events loaded yet.</p>
+        )}
+
+        <form className="form-grid inline-form" onSubmit={lookupEvent}>
+          <label>
+            Event ID
+            <input value={eventLookupId} onChange={(e) => setEventLookupId(e.target.value)} placeholder="dwolla event id" />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Lookup Event</button>
+          </div>
+        </form>
+        {eventDetail && (
+          <div className="transfer-details">
+            <p>
+              Event <strong>{eventDetail.id}</strong> on <strong>{eventDetail.topic}</strong> for resource
+              {' '}
+              {eventDetail.resourceId} at {new Date(eventDetail.created).toLocaleString()}.
+            </p>
+          </div>
         )}
       </section>
 
