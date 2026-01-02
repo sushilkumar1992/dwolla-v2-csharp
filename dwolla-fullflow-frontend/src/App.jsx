@@ -59,6 +59,24 @@ const initialTransfer = {
   amount: '',
   currency: 'USD',
   correlationId: '',
+  idempotencyKey: '',
+};
+
+const initialMassPayment = {
+  sourceFundingSourceId: '',
+  correlationId: '',
+  idempotencyKey: '',
+  items: [
+    { destinationFundingSourceId: '', amount: '', currency: 'USD', correlationId: '' },
+  ],
+};
+
+const initialRefund = {
+  transferId: '',
+  amount: '',
+  currency: 'USD',
+  correlationId: '',
+  idempotencyKey: '',
 };
 
 const initialWebhookSubscription = {
@@ -112,9 +130,13 @@ function App() {
   const [iavToken, setIavToken] = useState('');
   const [fundingForm, setFundingForm] = useState(initialFundingSource);
   const [transferForm, setTransferForm] = useState(initialTransfer);
+  const [massPaymentForm, setMassPaymentForm] = useState(initialMassPayment);
   const [customers, setCustomers] = useState([]);
   const [latestFundingSource, setLatestFundingSource] = useState(null);
   const [latestTransfer, setLatestTransfer] = useState(null);
+  const [latestMassPayment, setLatestMassPayment] = useState(null);
+  const [massPaymentItems, setMassPaymentItems] = useState([]);
+  const [massPaymentLookupId, setMassPaymentLookupId] = useState('');
   const [fundingSources, setFundingSources] = useState([]);
   const [microDepositForm, setMicroDepositForm] = useState(initialMicroDeposit);
   const [microDepositStatus, setMicroDepositStatus] = useState(null);
@@ -124,6 +146,9 @@ function App() {
   const [transferLookupId, setTransferLookupId] = useState('');
   const [transferDetails, setTransferDetails] = useState(null);
   const [cancelTransferId, setCancelTransferId] = useState('');
+  const [refundForm, setRefundForm] = useState(initialRefund);
+  const [transferReturns, setTransferReturns] = useState([]);
+  const [returnsLookupId, setReturnsLookupId] = useState('');
   const [dwollaEvents, setDwollaEvents] = useState([]);
   const [eventFilters, setEventFilters] = useState({ resourceId: '', topic: '' });
   const [eventLookupId, setEventLookupId] = useState('');
@@ -204,6 +229,90 @@ function App() {
       setLatestTransfer(created);
       setTransferForm(initialTransfer);
     }, 'Transfer initiated successfully.');
+  };
+
+  const addMassPaymentItem = () => {
+    setMassPaymentForm((prev) => ({
+      ...prev,
+      items: [...prev.items, { destinationFundingSourceId: '', amount: '', currency: 'USD', correlationId: '' }],
+    }));
+  };
+
+  const updateMassPaymentItem = (index, field, value) => {
+    setMassPaymentForm((prev) => {
+      const items = prev.items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
+      return { ...prev, items };
+    });
+  };
+
+  const removeMassPaymentItem = (index) => {
+    setMassPaymentForm((prev) => {
+      if (prev.items.length === 1) return prev;
+      const items = prev.items.filter((_, i) => i !== index);
+      return { ...prev, items };
+    });
+  };
+
+  const submitMassPayment = async (event) => {
+    event.preventDefault();
+    await withFeedback(async () => {
+      const payload = {
+        ...massPaymentForm,
+        items: massPaymentForm.items.map((item) => ({
+          ...item,
+          amount: Number(item.amount),
+        })),
+      };
+      const created = await apiPost('/api/transfers/mass-payments', payload);
+      setLatestMassPayment(created);
+      setMassPaymentItems([]);
+      setMassPaymentForm(initialMassPayment);
+    }, 'Mass payment submitted.');
+  };
+
+  const loadMassPayment = async (event) => {
+    event.preventDefault();
+    if (!massPaymentLookupId) {
+      setFeedback({ type: 'error', message: 'Enter a mass payment ID to inspect.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const summary = await apiGet(`/api/transfers/mass-payments/${massPaymentLookupId}`);
+      const items = await apiGet(`/api/transfers/mass-payments/${massPaymentLookupId}/items?limit=50&offset=0`);
+      setLatestMassPayment(summary);
+      setMassPaymentItems(items);
+    }, 'Mass payment details loaded.');
+  };
+
+  const submitRefund = async (event) => {
+    event.preventDefault();
+    if (!refundForm.transferId) {
+      setFeedback({ type: 'error', message: 'Provide a transfer ID to refund.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const result = await apiPost(`/api/transfers/${refundForm.transferId}/refunds`, {
+        ...refundForm,
+        amount: Number(refundForm.amount),
+      });
+      setTransferDetails(result);
+      setRefundForm(initialRefund);
+    }, 'Refund submitted.');
+  };
+
+  const loadTransferReturns = async (event) => {
+    event.preventDefault();
+    if (!returnsLookupId) {
+      setFeedback({ type: 'error', message: 'Enter a transfer ID to list returns.' });
+      return;
+    }
+
+    await withFeedback(async () => {
+      const results = await apiGet(`/api/transfers/${returnsLookupId}/returns?limit=50&offset=0`);
+      setTransferReturns(results);
+    }, 'Transfer returns loaded.');
   };
 
   const loadCustomers = async () => {
@@ -1281,6 +1390,10 @@ function App() {
             Correlation ID
             <input name="correlationId" value={transferForm.correlationId} onChange={handleChange(setTransferForm)} />
           </label>
+          <label>
+            Idempotency Key
+            <input name="idempotencyKey" value={transferForm.idempotencyKey} onChange={handleChange(setTransferForm)} />
+          </label>
           <button type="submit" disabled={busy}>Create Transfer</button>
         </form>
         {latestTransfer && (
@@ -1330,6 +1443,214 @@ function App() {
         </form>
         {transferDetails && (
           <p className="small-note">Most recent transfer lookup/cancel result: {transferDetails.status}</p>
+        )}
+      </section>
+
+      <section>
+        <h2>Mass Payments</h2>
+        <form className="form-grid" onSubmit={submitMassPayment}>
+          <label>
+            Source Funding Source ID
+            <input
+              name="sourceFundingSourceId"
+              list="fundingSourceOptions"
+              value={massPaymentForm.sourceFundingSourceId}
+              onChange={handleChange(setMassPaymentForm)}
+              required
+            />
+          </label>
+          <label>
+            Correlation ID
+            <input name="correlationId" value={massPaymentForm.correlationId} onChange={handleChange(setMassPaymentForm)} />
+          </label>
+          <label>
+            Idempotency Key
+            <input name="idempotencyKey" value={massPaymentForm.idempotencyKey} onChange={handleChange(setMassPaymentForm)} />
+          </label>
+
+          <div className="divider" aria-hidden="true" />
+          <h3>Items</h3>
+          {massPaymentForm.items.map((item, index) => (
+            <div key={`mp-item-${index}`} className="inline-form form-grid">
+              <label>
+                Destination Funding Source ID
+                <input
+                  list="fundingSourceOptions"
+                  value={item.destinationFundingSourceId}
+                  onChange={(e) => updateMassPaymentItem(index, 'destinationFundingSourceId', e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Amount
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={item.amount}
+                  onChange={(e) => updateMassPaymentItem(index, 'amount', e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Currency
+                <input
+                  value={item.currency}
+                  onChange={(e) => updateMassPaymentItem(index, 'currency', e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Correlation ID
+                <input
+                  value={item.correlationId}
+                  onChange={(e) => updateMassPaymentItem(index, 'correlationId', e.target.value)}
+                />
+              </label>
+              <div className="form-actions">
+                <button type="button" onClick={() => removeMassPaymentItem(index)} disabled={massPaymentForm.items.length === 1}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="form-actions">
+            <button type="button" onClick={addMassPaymentItem}>Add Item</button>
+            <button type="submit" disabled={busy}>Submit Mass Payment</button>
+          </div>
+        </form>
+
+        {latestMassPayment && (
+          <div className="transfer-details">
+            <p>
+              Mass Payment <strong>{latestMassPayment.id}</strong> is <strong>{latestMassPayment.status}</strong> for a total of
+              {` ${latestMassPayment.total} ${latestMassPayment.currency}`} (fees {latestMassPayment.totalFees}).
+            </p>
+            <p className="small-note">
+              Created {new Date(latestMassPayment.created).toLocaleString()} • Correlation {latestMassPayment.correlationId ||
+                'n/a'}
+            </p>
+          </div>
+        )}
+
+        <form className="form-grid inline-form" onSubmit={loadMassPayment}>
+          <label>
+            Mass Payment ID
+            <input value={massPaymentLookupId} onChange={(e) => setMassPaymentLookupId(e.target.value)} required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Details</button>
+          </div>
+        </form>
+
+        {massPaymentItems.length > 0 && (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Destination</th>
+                  <th>Correlation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {massPaymentItems.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.id}</td>
+                    <td>{item.status}</td>
+                    <td>
+                      {item.amount} {item.currency}
+                    </td>
+                    <td>{item.destinationFundingSourceId || 'n/a'}</td>
+                    <td>{item.correlationId || 'n/a'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2>Transfer Refunds &amp; Returns</h2>
+        <form className="form-grid" onSubmit={submitRefund}>
+          <label>
+            Transfer ID
+            <input
+              name="transferId"
+              value={refundForm.transferId}
+              onChange={handleChange(setRefundForm)}
+              required
+            />
+          </label>
+          <label>
+            Amount
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              name="amount"
+              value={refundForm.amount}
+              onChange={handleChange(setRefundForm)}
+              required
+            />
+          </label>
+          <label>
+            Currency
+            <input name="currency" value={refundForm.currency} onChange={handleChange(setRefundForm)} required />
+          </label>
+          <label>
+            Correlation ID
+            <input name="correlationId" value={refundForm.correlationId} onChange={handleChange(setRefundForm)} />
+          </label>
+          <label>
+            Idempotency Key
+            <input name="idempotencyKey" value={refundForm.idempotencyKey} onChange={handleChange(setRefundForm)} />
+          </label>
+          <button type="submit" disabled={busy}>Refund Transfer</button>
+        </form>
+
+        <form className="form-grid inline-form" onSubmit={loadTransferReturns}>
+          <label>
+            Transfer ID
+            <input value={returnsLookupId} onChange={(e) => setReturnsLookupId(e.target.value)} required />
+          </label>
+          <div className="form-actions">
+            <button type="submit" disabled={busy}>Load Returns</button>
+          </div>
+        </form>
+
+        {transferReturns.length > 0 && (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Code</th>
+                  <th>Description</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transferReturns.map((ret) => (
+                  <tr key={ret.id}>
+                    <td>{ret.id}</td>
+                    <td>{ret.status}</td>
+                    <td>
+                      {ret.amount} {ret.currency}
+                    </td>
+                    <td>{ret.code}</td>
+                    <td>{ret.description}</td>
+                    <td>{new Date(ret.created).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

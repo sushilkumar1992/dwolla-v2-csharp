@@ -52,6 +52,11 @@ For local development you can also edit `appsettings.json` or provide a user sec
 - `POST /api/transfers` – initiate a transfer between two funding sources
 - `GET /api/transfers/{transferId}` – fetch transfer details and status by ID
 - `POST /api/transfers/{transferId}/cancel` – cancel a transfer that is still cancelable
+- `POST /api/transfers/{transferId}/refunds` – submit a refund for a completed transfer with optional idempotency key
+- `GET /api/transfers/{transferId}/returns` – list return records for a transfer to understand failure reasons
+- `POST /api/transfers/mass-payments` – create a mass payment with multiple destination items
+- `GET /api/transfers/mass-payments/{massPaymentId}` – fetch mass payment status and totals
+- `GET /api/transfers/mass-payments/{massPaymentId}/items` – page through mass payment items and delivery status
 - `GET /api/events` – list Dwolla events with optional resource/topic filters
 - `GET /api/events/{eventId}` – retrieve a single Dwolla event by ID
 - `POST /api/webhooks` – Dwolla webhook receiver that validates request signatures and records events
@@ -64,8 +69,8 @@ For local development you can also edit `appsettings.json` or provide a user sec
 ### Webhooks
 
 Provide `Dwolla__WebhookSecret` from your Dwolla application settings and configure Dwolla to send webhooks to
-`/api/webhooks`. The API validates the Dwolla signature header, logs accepted payloads in memory, and exposes the
-recent event log through `GET /api/webhooks/events` for quick inspection while developing locally. The webhook store
-is durable by default, persisting the log to `WebhookStore__FilePath` and deduplicating events by Dwolla ID or payload
-hash to protect against replays. Use the webhook subscription endpoints to manage callback URLs and secrets directly
-from this API when automating setup.
+`/api/webhooks`. The API validates the Dwolla signature header, records accepted payloads in a durable, replay-protected
+store, and exposes the recent event log through `GET /api/webhooks/events` for quick inspection while developing locally.
+The webhook store persists to `WebhookStore__FilePath`, deduplicates events by Dwolla ID or payload hash to guard against
+replays, and can be cleared through the API when needed. Use the webhook subscription endpoints to manage callback URLs and
+secrets directly from this API when automating setup.

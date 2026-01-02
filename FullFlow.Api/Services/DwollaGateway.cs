@@ -30,10 +30,15 @@ namespace DwollaFullFlow.Api.Services
         Task<BalanceResponse> GetFundingSourceBalanceAsync(string fundingSourceId);
         Task<MicroDepositsResponse> InitiateMicroDepositsAsync(string fundingSourceId);
         Task<MicroDepositsResponse> VerifyMicroDepositsAsync(string fundingSourceId, decimal amount1, decimal amount2, string currency = "USD");
-        Task<Uri> CreateTransferAsync(CreateTransferRequest request);
+        Task<Uri> CreateTransferAsync(CreateTransferRequest request, string? idempotencyKey = null);
         Task<TransferResponse> GetTransferAsync(Uri transferUri);
         Task<TransferResponse> GetTransferAsync(string transferId);
         Task<TransferResponse> CancelTransferAsync(string transferId);
+        Task<Uri> CreateMassPaymentAsync(CreateMasspaymentRequest request, string? idempotencyKey = null);
+        Task<MasspaymentResponse> GetMassPaymentAsync(string massPaymentId);
+        Task<GetMassPaymentItemsResponse> GetMassPaymentItemsAsync(string massPaymentId, int limit, int offset);
+        Task<TransferResponse> CreateTransferRefundAsync(string transferId, CreateRefundRequest request, string? idempotencyKey = null);
+        Task<GetTransferReturnsResponse> GetTransferReturnsAsync(string transferId, int limit, int offset);
         Task<GetEventsResponse> GetEventsAsync(int limit, int offset, string? resourceId = null, string? topic = null);
         Task<EventResponse> GetEventAsync(string eventId);
         Task<GetDocumentsResponse> GetCustomerDocumentsAsync(string customerId, int limit, int offset);
@@ -234,9 +239,9 @@ namespace DwollaFullFlow.Api.Services
             return response.Content;
         }
 
-        public async Task<Uri> CreateTransferAsync(CreateTransferRequest request)
+        public async Task<Uri> CreateTransferAsync(CreateTransferRequest request, string? idempotencyKey = null)
         {
-            var headers = await BuildHeadersAsync();
+            var headers = await BuildHeadersAsync(idempotencyKey);
             var response = await _client.PostAsync<CreateTransferRequest, EmptyResponse>(
                 new Uri($"{_client.ApiBaseAddress}/transfers"), request, headers);
             EnsureSuccess(response);
@@ -277,6 +282,66 @@ namespace DwollaFullFlow.Api.Services
             var transferResponse = await _client.GetAsync<TransferResponse>(transferUri, headers);
             EnsureSuccess(transferResponse);
             return transferResponse.Content;
+        }
+
+        public async Task<Uri> CreateMassPaymentAsync(CreateMasspaymentRequest request, string? idempotencyKey = null)
+        {
+            var headers = await BuildHeadersAsync(idempotencyKey);
+            var response = await _client.PostAsync<CreateMasspaymentRequest, EmptyResponse>(
+                new Uri($"{_client.ApiBaseAddress}/mass-payments"),
+                request,
+                headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location;
+            if (location == null)
+            {
+                throw new DwollaApiException("Dwolla returned a successful response without a Location header for the mass payment.");
+            }
+
+            return location;
+        }
+
+        public async Task<MasspaymentResponse> GetMassPaymentAsync(string massPaymentId)
+        {
+            var headers = await BuildHeadersAsync();
+            var response = await _client.GetAsync<MasspaymentResponse>(
+                new Uri($"{_client.ApiBaseAddress}/mass-payments/{massPaymentId}"),
+                headers);
+
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<GetMassPaymentItemsResponse> GetMassPaymentItemsAsync(string massPaymentId, int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/mass-payments/{massPaymentId}/items?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetMassPaymentItemsResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
+        }
+
+        public async Task<TransferResponse> CreateTransferRefundAsync(string transferId, CreateRefundRequest request, string? idempotencyKey = null)
+        {
+            var headers = await BuildHeadersAsync(idempotencyKey);
+            var uri = new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}/refunds");
+            var response = await _client.PostAsync<CreateRefundRequest, EmptyResponse>(uri, request, headers);
+
+            EnsureSuccess(response);
+            var location = response.Response?.Headers.Location ?? new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}");
+            var transferResponse = await _client.GetAsync<TransferResponse>(location, headers);
+            EnsureSuccess(transferResponse);
+            return transferResponse.Content;
+        }
+
+        public async Task<GetTransferReturnsResponse> GetTransferReturnsAsync(string transferId, int limit, int offset)
+        {
+            var headers = await BuildHeadersAsync();
+            var uri = new Uri($"{_client.ApiBaseAddress}/transfers/{transferId}/returns?limit={limit}&offset={offset}");
+            var response = await _client.GetAsync<GetTransferReturnsResponse>(uri, headers);
+            EnsureSuccess(response);
+            return response.Content;
         }
 
         public async Task<GetEventsResponse> GetEventsAsync(int limit, int offset, string? resourceId = null, string? topic = null)
@@ -464,10 +529,17 @@ namespace DwollaFullFlow.Api.Services
             return await GetCustomerByUriAsync(new Uri($"{_client.ApiBaseAddress}/customers/{customerId}"), headers);
         }
 
-        private async Task<Headers> BuildHeadersAsync()
+        private async Task<Headers> BuildHeadersAsync(string? idempotencyKey = null)
         {
             var token = await GetAppTokenAsync();
-            return new Headers { { "Authorization", $"Bearer {token.Token}" } };
+            var headers = new Headers { { "Authorization", $"Bearer {token.Token}" } };
+
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                headers.Add("Idempotency-Key", idempotencyKey);
+            }
+
+            return headers;
         }
 
         private async Task<Customer> GetCustomerByUriAsync(Uri uri, Headers headers)
